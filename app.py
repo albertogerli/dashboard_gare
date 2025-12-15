@@ -493,21 +493,23 @@ def load_raw_data():
     cols_to_exclude = ['testo_completo']
 
     # Tipi di dato ottimizzati per risparmiare memoria
+    # Nota: evitare 'category' per colonne con molti valori unici (causa errori Arrow/PyArrow)
+    # Usare 'category' solo per colonne con pochi valori ripetuti (es. regione, fonte, procedura)
     dtype_opt = {
-        'chiave': 'category',
+        'chiave': 'str',  # Molti valori unici - NON usare category
         'cig': 'str',
         'ocid': 'str',
         'oggetto': 'str',
-        'fonte': 'category',
-        'categoria': 'category',
+        'fonte': 'category',  # Pochi valori (Gazzetta, OCDS, etc)
+        'categoria': 'category',  # ~20 categorie
         'categoria_originale': 'str',
-        'sottocategoria': 'category',
-        'procedura': 'category',
+        'sottocategoria': 'str',  # Troppi valori per category
+        'procedura': 'category',  # ~10 procedure
         'procedura_originale': 'str',
-        'tipo_appalto': 'category',
+        'tipo_appalto': 'category',  # ~5 tipi
         'tipo_appalto_originale': 'str',
-        'regione': 'category',
-        'comune': 'str',
+        'regione': 'category',  # 20 regioni
+        'comune': 'str',  # Troppi comuni per category
         'anno': 'Int16',
         'offerte_ricevute': 'Int16',
         'num_lotti': 'Int16',
