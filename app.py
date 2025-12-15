@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Dashboard Gare Pubbliche - Streamlit (Extended)"""
 
+import warnings
+# Suppress pandas FutureWarning for groupby observed parameter
+warnings.filterwarnings('ignore', category=FutureWarning, module='pandas')
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
