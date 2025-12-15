@@ -504,15 +504,15 @@ def load_raw_data():
         'categoria': 'category',  # ~20 categorie
         'categoria_originale': 'str',
         'sottocategoria': 'str',  # Troppi valori per category
-        'procedura': 'category',  # ~10 procedure
+        'procedura': 'str',  # Molti valori unici - normalizzare dopo
         'procedura_originale': 'str',
         'tipo_appalto': 'category',  # ~5 tipi
         'tipo_appalto_originale': 'str',
-        'regione': 'category',  # 20 regioni
+        'regione': 'str',  # Normalizzare dopo
         'comune': 'str',  # Troppi comuni per category
-        'anno': 'Int16',
-        'offerte_ricevute': 'Int16',
-        'num_lotti': 'Int16',
+        'anno': 'float64',  # Float per gestire NaN, convertire dopo
+        'offerte_ricevute': 'float64',  # Float per gestire NaN
+        'num_lotti': 'float64',  # Float per gestire NaN
         'tipo_intervento': 'str',
         'tipo_impianto': 'str',
         'tipo_illuminazione': 'str',
@@ -634,9 +634,34 @@ if 'regione' in raw_df.columns:
         'Provincia autonoma di trento': 'Trentino-Alto Adige',
         'Centrale': 'Lazio',  # Assume "Centrale" = Roma/Lazio
         'Non classificato': np.nan,  # Rimuovi non classificati
+        'nan': np.nan,
     }
     # Converti a string prima di replace per evitare warning con CategoricalDtype
     raw_df['regione'] = raw_df['regione'].astype(str).replace(regioni_map).astype('category')
+
+# Normalizza procedure (estrai nome pulito da formato "COD:XX ; TITLE:Nome")
+if 'procedura' in raw_df.columns:
+    def normalize_procedura(x):
+        if pd.isna(x) or str(x) == 'nan':
+            return np.nan
+        x = str(x)
+        # Estrai solo il TITLE se presente
+        if 'TITLE:' in x:
+            x = x.split('TITLE:')[-1].strip()
+        # Normalizza nomi comuni
+        proc_map = {
+            'Procedura aperta': 'Procedura Aperta',
+            'Aperta': 'Procedura Aperta',
+            'PROCEDURA APERTA': 'Procedura Aperta',
+            'AFFIDAMENTO DIRETTO': 'Affidamento Diretto',
+            'PROCEDURA NEGOZIATA PER AFFIDAMENTI SOTTO SOGLIA': 'Procedura Negoziata Sotto Soglia',
+            'AFFIDAMENTO DIRETTO IN ADESIONE AD ACCORDO QUADRO/CONVENZIONE': 'Adesione Accordo Quadro',
+            'PROCEDURA NEGOZIATA SENZA PREVIA PUBBLICAZIONE': 'Procedura Negoziata',
+            'PROCEDURA RISTRETTA': 'Procedura Ristretta',
+        }
+        return proc_map.get(x, x[:40] if len(x) > 40 else x)
+
+    raw_df['procedura'] = raw_df['procedura'].apply(normalize_procedura)
 
 # Sidebar filters
 st.sidebar.title("🔍 Filtri")
