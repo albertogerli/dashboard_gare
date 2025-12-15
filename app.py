@@ -483,22 +483,75 @@ def load_raw_data():
     unified_path = Path(__file__).parent.parent / "data" / "output" / "categorie" / "gare_unificate.csv"
     old_path = Path(__file__).parent.parent / "data" / "output" / "categorie" / "gare_filtrate_tutte.csv"
 
-    # Prima prova il file compresso (Streamlit Cloud)
-    if gz_path.exists():
-        df = pd.read_csv(gz_path, compression='gzip', low_memory=False)
-    elif unified_path.exists():
-        df = pd.read_csv(unified_path, low_memory=False)
-    else:
-        df = pd.read_csv(old_path, low_memory=False)
+    # Colonne da escludere per risparmiare memoria (testo_completo è molto grande)
+    # La carichiamo solo se necessario
+    cols_to_exclude = ['testo_completo']
 
-    if df is not None:
+    # Tipi di dato ottimizzati per risparmiare memoria
+    dtype_opt = {
+        'chiave': 'category',
+        'cig': 'str',
+        'ocid': 'str',
+        'oggetto': 'str',
+        'fonte': 'category',
+        'categoria': 'category',
+        'categoria_originale': 'str',
+        'sottocategoria': 'category',
+        'procedura': 'category',
+        'procedura_originale': 'str',
+        'tipo_appalto': 'category',
+        'tipo_appalto_originale': 'str',
+        'regione': 'category',
+        'comune': 'str',
+        'anno': 'Int16',
+        'offerte_ricevute': 'Int16',
+        'num_lotti': 'Int16',
+        'tipo_intervento': 'str',
+        'tipo_impianto': 'str',
+        'tipo_illuminazione': 'str',
+        'tipo_energia': 'str',
+        'tipo_efficientamento': 'str',
+        'cup': 'str',
+        'cpv_code': 'str',
+        'cpv_description': 'str',
+        'edizione_consip': 'str',
+        'tipo_accordo_consip': 'str',
+    }
+
+    try:
+        # Prima prova il file compresso (Streamlit Cloud)
+        if gz_path.exists():
+            # Leggi prima le colonne disponibili
+            df_cols = pd.read_csv(gz_path, compression='gzip', nrows=0)
+            usecols = [c for c in df_cols.columns if c not in cols_to_exclude]
+            # Filtra dtype solo per colonne esistenti
+            dtype_use = {k: v for k, v in dtype_opt.items() if k in usecols}
+            df = pd.read_csv(gz_path, compression='gzip', usecols=usecols, dtype=dtype_use, low_memory=True)
+        elif unified_path.exists():
+            df_cols = pd.read_csv(unified_path, nrows=0)
+            usecols = [c for c in df_cols.columns if c not in cols_to_exclude]
+            dtype_use = {k: v for k, v in dtype_opt.items() if k in usecols}
+            df = pd.read_csv(unified_path, usecols=usecols, dtype=dtype_use, low_memory=True)
+        elif old_path.exists():
+            df_cols = pd.read_csv(old_path, nrows=0)
+            usecols = [c for c in df_cols.columns if c not in cols_to_exclude]
+            dtype_use = {k: v for k, v in dtype_opt.items() if k in usecols}
+            df = pd.read_csv(old_path, usecols=usecols, dtype=dtype_use, low_memory=True)
+        else:
+            st.error("Nessun file dati trovato!")
+            return pd.DataFrame()
+    except Exception as e:
+        st.error(f"Errore caricamento dati: {e}")
+        return pd.DataFrame()
+
+    if df is not None and len(df) > 0:
         # Standardizza nomi colonne per retrocompatibilità
         if 'importo_aggiudicazione' in df.columns:
             df['award_amount'] = df['importo_aggiudicazione']
         if 'oggetto' in df.columns:
             df['tender_title'] = df['oggetto']
-        if 'testo_completo' in df.columns:
-            df['tender_description'] = df['testo_completo']
+        # tender_description non più disponibile (esclusa per memoria)
+        df['tender_description'] = ''
         if 'ente_appaltante' in df.columns:
             df['buyer_name'] = df['ente_appaltante']
         if 'data_aggiudicazione' in df.columns:
@@ -522,20 +575,30 @@ data = load_data()
 raw_df = load_raw_data()
 consip_raw_df = load_consip_data()
 
+# Verifica che i dati siano stati caricati correttamente
+if raw_df is None or len(raw_df) == 0:
+    st.error("⚠️ Impossibile caricare i dati. Verificare che i file siano presenti nella cartella data/")
+    st.stop()
+
 # Preprocess raw data
-raw_df['award_date'] = pd.to_datetime(raw_df['award_date'], errors='coerce')
-if 'anno' not in raw_df.columns:
+if 'award_date' in raw_df.columns:
+    raw_df['award_date'] = pd.to_datetime(raw_df['award_date'], errors='coerce')
+if 'anno' not in raw_df.columns and 'award_date' in raw_df.columns:
     raw_df['anno'] = raw_df['award_date'].dt.year
-raw_df['mese'] = raw_df['award_date'].dt.month
+if 'award_date' in raw_df.columns:
+    raw_df['mese'] = raw_df['award_date'].dt.month
+else:
+    raw_df['mese'] = np.nan
 
 # Converti colonne numeriche - forza conversione
-raw_df['award_amount'] = pd.to_numeric(raw_df['award_amount'], errors='coerce')
+if 'award_amount' in raw_df.columns:
+    raw_df['award_amount'] = pd.to_numeric(raw_df['award_amount'], errors='coerce')
 if 'sconto' in raw_df.columns:
     raw_df['sconto'] = pd.to_numeric(raw_df['sconto'], errors='coerce')
 
 # Calcola sconto se non esiste o tutto NaN
 if 'sconto' not in raw_df.columns or raw_df['sconto'].isna().all():
-    if 'tender_amount' in raw_df.columns:
+    if 'tender_amount' in raw_df.columns and 'award_amount' in raw_df.columns:
         raw_df['tender_amount'] = pd.to_numeric(raw_df['tender_amount'], errors='coerce')
         raw_df['sconto'] = ((raw_df['tender_amount'] - raw_df['award_amount']) / raw_df['tender_amount'] * 100).clip(0, 100)
 
