@@ -565,10 +565,20 @@ def load_raw_data():
 
 @st.cache_data
 def load_consip_data():
-    data_path = Path(__file__).parent.parent / "data" / "output" / "ServizioLuce.xlsx"
+    # Path per Streamlit Cloud (file nella cartella data/)
+    cloud_path = Path(__file__).parent / "data" / "ServizioLuce.xlsx"
+    # Path locale alternativo
+    local_path = Path(__file__).parent.parent / "data" / "output" / "ServizioLuce.xlsx"
+
     try:
-        return pd.read_excel(data_path)
-    except:
+        if cloud_path.exists():
+            return pd.read_excel(cloud_path)
+        elif local_path.exists():
+            return pd.read_excel(local_path)
+        else:
+            return pd.DataFrame()
+    except Exception as e:
+        st.warning(f"Errore caricamento dati CONSIP: {e}")
         return pd.DataFrame()
 
 data = load_data()
