@@ -261,7 +261,11 @@ def remove_favorite(chart_id):
     save_favorites(favorites)
 
 def get_openai_api_key():
-    """Get OpenAI API key from environment"""
+    """Get OpenAI API key from session state or environment"""
+    # Prima controlla session state (inserita dall'utente)
+    if 'openai_api_key' in st.session_state and st.session_state.openai_api_key:
+        return st.session_state.openai_api_key
+    # Fallback a variabile d'ambiente
     return os.getenv('OPENAI_API_KEY')
 
 def call_responses_api(prompt: str, instructions: str) -> str:
@@ -3827,11 +3831,35 @@ if tab15:
     st.subheader("🤖 Visualizzazioni AI")
     st.markdown("**Workflow 2-step**: Prima analizziamo la tua richiesta, poi generiamo il grafico")
 
-    # Check API key
-    if not os.getenv('OPENAI_API_KEY'):
-        st.warning("⚠️ Per usare questa funzione, imposta la variabile d'ambiente OPENAI_API_KEY")
-        st.code("export OPENAI_API_KEY='la-tua-chiave'", language="bash")
-    else:
+    # Check API key - prima da session, poi da env
+    api_key_available = get_openai_api_key() is not None
+
+    # Se non c'è API key, mostra input per inserirla
+    if not api_key_available:
+        st.warning("⚠️ Per usare questa funzione, inserisci la tua OpenAI API Key")
+
+        with st.expander("🔑 Inserisci API Key", expanded=True):
+            st.markdown("""
+            La chiave verrà salvata **solo per questa sessione** e non sarà memorizzata sul server.
+            Puoi ottenere una chiave su [platform.openai.com](https://platform.openai.com/api-keys)
+            """)
+
+            api_key_input = st.text_input(
+                "OpenAI API Key",
+                type="password",
+                placeholder="sk-...",
+                help="La chiave inizia con 'sk-' ed è lunga circa 50 caratteri"
+            )
+
+            if st.button("✅ Salva per questa sessione", type="primary"):
+                if api_key_input and api_key_input.startswith("sk-"):
+                    st.session_state.openai_api_key = api_key_input
+                    st.success("✅ API Key salvata! La pagina si aggiornerà...")
+                    st.rerun()
+                else:
+                    st.error("❌ API Key non valida. Deve iniziare con 'sk-'")
+
+    if get_openai_api_key():
         # Show available columns in expander
         with st.expander("📋 Colonne disponibili nel dataset", expanded=False):
             cols_info = filtered_df.dtypes.to_frame('tipo').reset_index()
