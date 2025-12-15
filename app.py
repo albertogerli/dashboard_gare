@@ -602,9 +602,10 @@ if 'sconto' not in raw_df.columns or raw_df['sconto'].isna().all():
         raw_df['tender_amount'] = pd.to_numeric(raw_df['tender_amount'], errors='coerce')
         raw_df['sconto'] = ((raw_df['tender_amount'] - raw_df['award_amount']) / raw_df['tender_amount'] * 100).clip(0, 100)
 
-# Pulisci sconti invalidi (negativi o > 100)
+# Pulisci sconti invalidi (negativi, 0, o > 100)
+# Sconti = 0 o null non vanno considerati nelle analisi
 if 'sconto' in raw_df.columns:
-    raw_df.loc[raw_df['sconto'] < 0, 'sconto'] = np.nan
+    raw_df.loc[raw_df['sconto'] <= 0, 'sconto'] = np.nan  # 0 e negativi -> NaN
     raw_df.loc[raw_df['sconto'] > 100, 'sconto'] = np.nan
 
 # Sidebar filters
@@ -1270,17 +1271,25 @@ if tab6:
 
     with col1:
         st.markdown("### 📈 Distribuzione Sconti")
-        fig = px.histogram(
-            filtered_df[filtered_df['sconto'].between(0, 100)],
-            x='sconto',
-            nbins=50,
-            color_discrete_sequence=[CGL_GREEN],
-            labels={'sconto': 'Sconto %'}
-        )
-        fig.add_vline(x=filtered_df['sconto'].mean(), line_dash="dash", line_color="red", annotation_text=f"Media: {filtered_df['sconto'].mean():.1f}%")
-        fig.add_vline(x=filtered_df['sconto'].median(), line_dash="dash", line_color="green", annotation_text=f"Mediana: {filtered_df['sconto'].median():.1f}%")
-        fig.update_layout(height=350)
-        st.plotly_chart(fig, width="stretch")
+        # Filtra sconti validi: escludi 0, null e valori > 100
+        valid_sconti = filtered_df[(filtered_df['sconto'] > 0) & (filtered_df['sconto'] <= 100)]
+        if len(valid_sconti) > 0:
+            fig = px.histogram(
+                valid_sconti,
+                x='sconto',
+                nbins=50,
+                color_discrete_sequence=[CGL_GREEN],
+                labels={'sconto': 'Sconto %'}
+            )
+            sconto_mean = valid_sconti['sconto'].mean()
+            sconto_median = valid_sconti['sconto'].median()
+            fig.add_vline(x=sconto_mean, line_dash="dash", line_color="red", annotation_text=f"Media: {sconto_mean:.1f}%")
+            fig.add_vline(x=sconto_median, line_dash="dash", line_color="green", annotation_text=f"Mediana: {sconto_median:.1f}%")
+            fig.update_layout(height=350)
+            st.plotly_chart(fig, width="stretch")
+            st.caption(f"ℹ️ Analisi basata su {len(valid_sconti):,} gare con sconto > 0%")
+        else:
+            st.info("Nessun dato di sconto valido disponibile")
 
     with col2:
         st.markdown("### 💰 Distribuzione Valori (Log)")
@@ -1317,7 +1326,8 @@ if tab6:
     # Box plot per categoria
     st.subheader("📦 Box Plot Sconti per Categoria")
     cat_col = '_categoria' if '_categoria' in filtered_df.columns else 'categoria'
-    valid_box = filtered_df[filtered_df['sconto'].notna() & filtered_df['sconto'].between(0, 100)]
+    # Filtra sconti validi: escludi 0, null e valori > 100
+    valid_box = filtered_df[(filtered_df['sconto'] > 0) & (filtered_df['sconto'] <= 100)]
     if cat_col in valid_box.columns and len(valid_box) > 50:
         fig = px.box(
             valid_box,
@@ -2206,7 +2216,8 @@ if tab9:
             if 'sconto' in supplier_df.columns and supplier_df['sconto'].notna().any():
                 col1, col2 = st.columns(2)
                 with col1:
-                    valid_sconto = supplier_df[supplier_df['sconto'].between(0, 100)]
+                    # Filtra sconti validi: escludi 0, null e valori > 100
+                    valid_sconto = supplier_df[(supplier_df['sconto'] > 0) & (supplier_df['sconto'] <= 100)]
                     if len(valid_sconto) > 0:
                         fig = px.histogram(
                             valid_sconto,
@@ -2215,14 +2226,15 @@ if tab9:
                             color_discrete_sequence=[CGL_BLUE],
                             labels={'sconto': 'Sconto %'}
                         )
-                        sconto_mean = supplier_df['sconto'].mean()
+                        sconto_mean = valid_sconto['sconto'].mean()
                         if pd.notna(sconto_mean):
                             fig.add_vline(x=sconto_mean, line_dash="dash", line_color="red",
                                           annotation_text=f"Media: {sconto_mean:.1f}%")
                         fig.update_layout(height=300)
                         st.plotly_chart(fig, width="stretch")
+                        st.caption(f"ℹ️ Basato su {len(valid_sconto)} gare con sconto > 0%")
                     else:
-                        st.info("Dati sconto non sufficienti")
+                        st.info("Dati sconto non sufficienti (sconto > 0%)")
 
                 with col2:
                     # Sconto by category
@@ -2701,22 +2713,23 @@ if tab10:
 
     with col1:
         st.markdown("#### Gare con Sconto Anomalo")
-        # Sconti molto alti (>80%) o molto bassi (<5%)
+        # Sconti molto alti (>80%) o molto bassi (<5%) - escludi 0 e null
         if 'sconto' in filtered_df.columns and filtered_df['sconto'].notna().any():
-            high_discount = filtered_df[filtered_df['sconto'] > 80]
-            low_discount = filtered_df[(filtered_df['sconto'] < 5) & (filtered_df['sconto'] >= 0)]
+            valid_sconti_anom = filtered_df[(filtered_df['sconto'] > 0) & (filtered_df['sconto'] <= 100)]
+            high_discount = valid_sconti_anom[valid_sconti_anom['sconto'] > 80]
+            low_discount = valid_sconti_anom[valid_sconti_anom['sconto'] < 5]
 
             st.metric("⬆️ Sconto > 80%", f"{len(high_discount):,}".replace(",", "."),
                       help="Gare con sconto superiore all'80%")
             st.metric("⬇️ Sconto < 5%", f"{len(low_discount):,}".replace(",", "."),
-                      help="Gare con sconto inferiore al 5%")
+                      help="Gare con sconto tra 0% e 5% (escluso 0)")
 
-            # Distribution
+            # Distribution - escludi sconti = 0
             fig = px.histogram(
-                filtered_df[filtered_df['sconto'].between(0, 100)],
+                valid_sconti_anom,
                 x='sconto',
                 nbins=100,
-                title='Distribuzione Sconti',
+                title='Distribuzione Sconti (esclusi valori = 0)',
                 color_discrete_sequence=[CGL_GREEN]
             )
             fig.add_vline(x=5, line_dash="dash", line_color="red")
