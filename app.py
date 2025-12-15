@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """Dashboard Gare Pubbliche - Streamlit (Extended)"""
 
-import warnings
-# Suppress pandas FutureWarning for groupby observed parameter
-warnings.filterwarnings('ignore', category=FutureWarning, module='pandas')
 
 import streamlit as st
 import pandas as pd
@@ -1064,7 +1061,7 @@ if tab3:
                 if 'sconto' in filtered_df.columns:
                     agg_dict_vol['sconto'] = 'mean'
 
-                volume_df = df_vol.groupby('anno_display').agg(agg_dict_vol).reset_index()
+                volume_df = df_vol.groupby('anno_display', observed=True).agg(agg_dict_vol).reset_index()
 
                 # Rinomina colonne
                 rename_dict = {'anno_display': 'anno', id_col_vol: 'count'}
@@ -1108,10 +1105,10 @@ if tab3:
                 if 'fonte' in filtered_df.columns:
                     # Per record con data
                     with_data = filtered_df[filtered_df['anno'].notna() & filtered_df['anno'].between(2015, 2025)]
-                    fonte_with = with_data.groupby('fonte')[id_col_vol].count().to_dict() if len(with_data) > 0 else {}
+                    fonte_with = with_data.groupby('fonte', observed=True)[id_col_vol].count().to_dict() if len(with_data) > 0 else {}
                     # Per record senza data
                     no_data = filtered_df[filtered_df['anno'].isna()]
-                    fonte_no = no_data.groupby('fonte')[id_col_vol].count().to_dict() if len(no_data) > 0 else {}
+                    fonte_no = no_data.groupby('fonte', observed=True)[id_col_vol].count().to_dict() if len(no_data) > 0 else {}
 
                     st.caption(f"📊 Con data: {fonte_with}")
                     if fonte_no:
@@ -1173,7 +1170,7 @@ if tab4:
 
         if supplier_col in filtered_df.columns and value_col in filtered_df.columns:
             # Calcola da dati filtrati
-            top_df = filtered_df.groupby(supplier_col).agg({
+            top_df = filtered_df.groupby(supplier_col, observed=True).agg({
                 value_col: 'sum',
                 'ocid': 'count'
             }).reset_index()
@@ -1395,7 +1392,7 @@ if tab6:
         if 'mese' in filtered_df.columns and filtered_df['mese'].notna().any():
             valid_monthly = filtered_df[filtered_df['mese'].notna() & filtered_df['anno'].notna()]
             if len(valid_monthly) > 10:
-                monthly = valid_monthly.groupby(['anno', 'mese']).agg({
+                monthly = valid_monthly.groupby(['anno', 'mese'], observed=True).agg({
                     'award_amount': 'sum',
                     'sconto': 'mean'
                 }).reset_index()
@@ -1542,7 +1539,7 @@ if tab7:
                     agg_dict[sconto_col_city] = 'mean'
 
                 if agg_dict:
-                    cat_city = city_df.groupby(cat_col_city).agg(agg_dict).reset_index()
+                    cat_city = city_df.groupby(cat_col_city, observed=True).agg(agg_dict).reset_index()
                     # Rinomina colonne
                     new_cols = ['Categoria']
                     if id_col_city:
@@ -1596,7 +1593,7 @@ if tab7:
                     agg_dict_sup[sconto_col_city] = 'mean'
 
                 if agg_dict_sup:
-                    top_suppliers = city_df.groupby(supplier_col_city).agg(agg_dict_sup).reset_index()
+                    top_suppliers = city_df.groupby(supplier_col_city, observed=True).agg(agg_dict_sup).reset_index()
                     new_cols_sup = ['Fornitore']
                     if id_col_city:
                         new_cols_sup.append('N. Gare')
@@ -1639,7 +1636,7 @@ if tab7:
                     agg_dict_buy[sconto_col_city] = 'mean'
 
                 if agg_dict_buy:
-                    top_buyers = city_df.groupby(buyer_col_city).agg(agg_dict_buy).reset_index()
+                    top_buyers = city_df.groupby(buyer_col_city, observed=True).agg(agg_dict_buy).reset_index()
                     new_cols_buy = ['Stazione Appaltante']
                     if id_col_city:
                         new_cols_buy.append('N. Gare')
@@ -1757,7 +1754,7 @@ if tab7:
                     agg_dict_year[sconto_col_city] = 'mean'
 
                 if agg_dict_year:
-                    yearly = city_df.groupby('anno').agg(agg_dict_year).reset_index()
+                    yearly = city_df.groupby('anno', observed=True).agg(agg_dict_year).reset_index()
                     year_cols = ['Anno']
                     if id_col_city:
                         year_cols.append('N. Gare')
@@ -1803,7 +1800,7 @@ if tab7:
                 agg_dict_summary[buyer_col_city] = 'nunique'
 
             if agg_dict_summary:
-                city_summary = filtered_df.groupby(locality_col).agg(agg_dict_summary).reset_index()
+                city_summary = filtered_df.groupby(locality_col, observed=True).agg(agg_dict_summary).reset_index()
                 sum_cols = ['Città']
                 if id_col_city:
                     sum_cols.append('N. Gare')
@@ -1929,7 +1926,7 @@ if tab8:
             'ORISTANO': [39.9062, 8.5896]
         }
 
-        consip_by_city = filtered_consip.groupby('buyer_locality').agg({
+        consip_by_city = filtered_consip.groupby('buyer_locality', observed=True).agg({
             'CIG': 'count',
             'award_amount': 'sum',
             'sconto': 'mean',
@@ -1967,7 +1964,7 @@ if tab8:
 
         with col2:
             st.markdown("#### 📊 Riepilogo per Tipo")
-            tipo_summary = filtered_consip.groupby('TipoAccordo').agg({
+            tipo_summary = filtered_consip.groupby('TipoAccordo', observed=True).agg({
                 'CIG': 'count',
                 'award_amount': 'sum'
             }).reset_index()
@@ -1985,7 +1982,7 @@ if tab8:
         st.markdown("---")
         st.markdown("#### 📅 Timeline Contratti CONSIP")
 
-        timeline = filtered_consip.groupby(['anno', 'TipoAccordo']).agg({
+        timeline = filtered_consip.groupby(['anno', 'TipoAccordo'], observed=True).agg({
             'CIG': 'count',
             'award_amount': 'sum'
         }).reset_index()
@@ -2062,7 +2059,7 @@ if tab9:
         st.warning("Dati insufficienti per l'analisi fornitore")
     else:
         # Get unique suppliers sorted by total value - USA FILTERED_DF per rispettare filtri
-        supplier_totals = filtered_df.groupby(supplier_col)[amount_col_forn].sum().sort_values(ascending=False)
+        supplier_totals = filtered_df.groupby(supplier_col, observed=True)[amount_col_forn].sum().sort_values(ascending=False)
         suppliers_list = [s for s in supplier_totals.index.tolist() if pd.notna(s)]
 
         # Search box with text input
@@ -2138,7 +2135,7 @@ if tab9:
                     agg_dict[id_col_forn] = 'count'
                 if amount_col_forn and amount_col_forn in supplier_df.columns:
                     agg_dict[amount_col_forn] = 'sum'
-                yearly = supplier_df.groupby('anno').agg(agg_dict).reset_index()
+                yearly = supplier_df.groupby('anno', observed=True).agg(agg_dict).reset_index()
                 yearly.columns = ['Anno'] + ['N. Gare' if c == id_col_forn else ('Valore' if c == amount_col_forn else 'Sconto Medio') for c in agg_dict.keys()]
                 yearly = yearly[yearly['Anno'].between(2015, 2025)]
                 yearly['Anno'] = yearly['Anno'].astype(int)  # Anni interi
@@ -2163,7 +2160,7 @@ if tab9:
                 st.markdown("#### 📦 Per Categoria")
                 cat_col = get_col_forn(supplier_df, ['_categoria', 'categoria', 'category'])
                 if cat_col and id_col_forn and amount_col_forn:
-                    cat_supplier = supplier_df.groupby(cat_col).agg({
+                    cat_supplier = supplier_df.groupby(cat_col, observed=True).agg({
                         id_col_forn: 'count',
                         amount_col_forn: 'sum'
                     }).reset_index()
@@ -2192,7 +2189,7 @@ if tab9:
                 st.markdown("#### 🗺️ Distribuzione Geografica")
                 city_col_geo = get_col_forn(supplier_df, ['citta', 'buyer_locality', 'comune'])
                 if city_col_geo and id_col_forn and amount_col_forn:
-                    geo_supplier = supplier_df.groupby(city_col_geo).agg({
+                    geo_supplier = supplier_df.groupby(city_col_geo, observed=True).agg({
                         id_col_forn: 'count',
                         amount_col_forn: 'sum'
                     }).reset_index()
@@ -2217,7 +2214,7 @@ if tab9:
             with col2:
                 st.markdown("#### 🏛️ Top Enti Appaltanti")
                 if buyer_col_forn and id_col_forn and amount_col_forn:
-                    buyer_supplier = supplier_df.groupby(buyer_col_forn).agg({
+                    buyer_supplier = supplier_df.groupby(buyer_col_forn, observed=True).agg({
                         id_col_forn: 'count',
                         amount_col_forn: 'sum'
                     }).reset_index()
@@ -2270,7 +2267,7 @@ if tab9:
                     # Sconto by category
                     cat_col_sc = get_col_forn(supplier_df, ['_categoria', 'categoria', 'category'])
                     if cat_col_sc:
-                        sconto_cat = supplier_df.groupby(cat_col_sc)['sconto'].mean().sort_values(ascending=True).reset_index()
+                        sconto_cat = supplier_df.groupby(cat_col_sc, observed=True)['sconto'].mean().sort_values(ascending=True).reset_index()
                         sconto_cat.columns = ['Categoria', 'Sconto Medio']
 
                         fig = px.bar(
@@ -2369,7 +2366,7 @@ if tab9:
                 agg_dict_top['anno'] = ['min', 'max']
 
             if agg_dict_top:
-                top_suppliers_summary = filtered_df.groupby(supplier_col).agg(agg_dict_top).reset_index()
+                top_suppliers_summary = filtered_df.groupby(supplier_col, observed=True).agg(agg_dict_top).reset_index()
                 # Rinomina colonne
                 new_cols = ['Aggiudicatario']
                 for col in agg_dict_top.keys():
@@ -2426,7 +2423,7 @@ if tab10:
         cr4_by_cat = []
         for cat in filtered_df[cat_col_mkt].dropna().unique():
             cat_data = filtered_df[filtered_df[cat_col_mkt] == cat]
-            supplier_shares = cat_data.groupby(supplier_col_mkt)[amount_col_mkt].sum()
+            supplier_shares = cat_data.groupby(supplier_col_mkt, observed=True)[amount_col_mkt].sum()
             total = supplier_shares.sum()
             if total > 0:
                 hhi = ((supplier_shares / total * 100) ** 2).sum()
@@ -2483,7 +2480,7 @@ if tab10:
 
         # N. Operatori per categoria (full width)
         st.markdown("#### N. Operatori per Categoria")
-        operators_by_cat = filtered_df.groupby(cat_col_mkt)[supplier_col_mkt].nunique().reset_index()
+        operators_by_cat = filtered_df.groupby(cat_col_mkt, observed=True)[supplier_col_mkt].nunique().reset_index()
         operators_by_cat.columns = ['Categoria', 'N. Operatori']
         operators_by_cat = operators_by_cat.sort_values('N. Operatori', ascending=True)
 
@@ -2541,7 +2538,7 @@ if tab10:
             if len(valid_with_sconto) > 50 and id_col_t10:
                 # ANALISI CON SCONTO
                 st.markdown("#### Sconto vs N. Partecipanti")
-                comp_analysis = valid_with_sconto.groupby(partecipanti_col).agg({
+                comp_analysis = valid_with_sconto.groupby(partecipanti_col, observed=True).agg({
                     'sconto': 'mean',
                     id_col_t10: 'count'
                 }).reset_index()
@@ -2584,7 +2581,7 @@ if tab10:
                     if amount_col_t10:
                         agg_dict_comp[amount_col_t10] = 'mean'
 
-                    comp_analysis = valid_data.groupby(partecipanti_col).agg(agg_dict_comp).reset_index()
+                    comp_analysis = valid_data.groupby(partecipanti_col, observed=True).agg(agg_dict_comp).reset_index()
                     col_names_comp = ['N. Partecipanti', 'N. Gare']
                     if amount_col_t10:
                         col_names_comp.append('Importo Medio')
@@ -2679,7 +2676,7 @@ if tab10:
             if amount_col_t10:
                 agg_dict_month[amount_col_t10] = 'sum'
 
-            monthly_dist = valid_monthly.groupby('mese').agg(agg_dict_month).reset_index()
+            monthly_dist = valid_monthly.groupby('mese', observed=True).agg(agg_dict_month).reset_index()
             # Rename columns
             new_cols_month = ['Mese', 'N. Gare', 'Sconto Medio']
             if amount_col_t10:
@@ -2713,7 +2710,7 @@ if tab10:
         if count_col_heat and 'anno' in filtered_df.columns and 'mese' in filtered_df.columns:
             valid_heatmap = filtered_df[filtered_df['anno'].notna() & filtered_df['mese'].notna() & filtered_df['mese'].between(1, 12)]
             if len(valid_heatmap) > 0:
-                pivot_monthly = valid_heatmap.groupby(['anno', 'mese'])[count_col_heat].count().reset_index()
+                pivot_monthly = valid_heatmap.groupby(['anno', 'mese'], observed=True)[count_col_heat].count().reset_index()
                 pivot_monthly.columns = ['Anno', 'Mese', 'N. Gare']
                 pivot_monthly = pivot_monthly[(pivot_monthly['Anno'].between(2018, 2025)) & (pivot_monthly['Mese'].between(1, 12))]
 
@@ -2808,7 +2805,7 @@ if tab10:
                 cat_data = filtered_df[filtered_df[cat_col_t10] == cat]
                 total = cat_data[amount_col_t10].sum()
                 if total > 0:
-                    top_supplier = cat_data.groupby(supplier_col_t10)[amount_col_t10].sum().nlargest(1)
+                    top_supplier = cat_data.groupby(supplier_col_t10, observed=True)[amount_col_t10].sum().nlargest(1)
                     if len(top_supplier) > 0:
                         share = top_supplier.iloc[0] / total * 100
                         if share > 30:
@@ -2862,7 +2859,7 @@ if tab10:
                 if amount_col_t10:
                     agg_dict_proc[amount_col_t10] = 'sum'
 
-                proc_analysis = proc_df.groupby('proc_clean').agg(agg_dict_proc).reset_index()
+                proc_analysis = proc_df.groupby('proc_clean', observed=True).agg(agg_dict_proc).reset_index()
                 # Rename columns
                 proc_cols = ['Procedura', 'Sconto Medio']
                 if id_col_t10:
@@ -2910,7 +2907,7 @@ if tab10:
             if amount_col_t10:
                 agg_dict_reg[amount_col_t10] = 'sum'
 
-            regional_perf = filtered_df[filtered_df[region_col].notna() & filtered_df['sconto'].notna()].groupby(region_col).agg(agg_dict_reg).reset_index()
+            regional_perf = filtered_df[filtered_df[region_col].notna() & filtered_df['sconto'].notna()].groupby(region_col, observed=True).agg(agg_dict_reg).reset_index()
             # Rename columns
             reg_cols = ['Regione', 'Sconto Medio']
             if id_col_t10:
@@ -3048,7 +3045,7 @@ if tab11:
 
         with col1:
             st.subheader("📊 Contratti CONSIP in Scadenza per Anno")
-            scadenze_anno = contratti_futuri.groupby('anno_scadenza').agg({
+            scadenze_anno = contratti_futuri.groupby('anno_scadenza', observed=True).agg({
                 'CIG': 'count',
                 'ImportoAggiudicazione': 'sum'
             }).reset_index()
@@ -3071,7 +3068,7 @@ if tab11:
         with col2:
             st.subheader("🏢 Scadenze per Tipo Accordo")
             if 'TipoAccordo' in contratti_futuri.columns:
-                scad_tipo = contratti_futuri.groupby('TipoAccordo').agg({
+                scad_tipo = contratti_futuri.groupby('TipoAccordo', observed=True).agg({
                     'CIG': 'count',
                     'ImportoAggiudicazione': 'sum'
                 }).reset_index()
@@ -3091,7 +3088,7 @@ if tab11:
         prossimi_3_anni['mese_scadenza'] = prossimi_3_anni['ScadenzaContratto'].dt.to_period('M').astype(str)
 
         if len(prossimi_3_anni) > 0:
-            timeline = prossimi_3_anni.groupby('mese_scadenza').agg({
+            timeline = prossimi_3_anni.groupby('mese_scadenza', observed=True).agg({
                 'CIG': 'count',
                 'ImportoAggiudicazione': 'sum'
             }).reset_index()
@@ -3206,7 +3203,7 @@ if tab11:
 
         with col1:
             st.markdown("#### Stima Scadenze per Anno")
-            stima_anno = stima_future.groupby('anno_scadenza_stima').agg({
+            stima_anno = stima_future.groupby('anno_scadenza_stima', observed=True).agg({
                 'ocid': 'count',
                 'award_amount': 'sum'
             }).reset_index()
@@ -3220,7 +3217,7 @@ if tab11:
 
         with col2:
             st.markdown("#### Stima Scadenze per Categoria")
-            stima_cat = stima_future.groupby('_categoria').agg({
+            stima_cat = stima_future.groupby('_categoria', observed=True).agg({
                 'ocid': 'count',
                 'award_amount': 'sum'
             }).reset_index()
@@ -3251,7 +3248,7 @@ if tab11:
                 st.metric("🏢 Enti Coinvolti", f"{imminenti['buyer_name'].nunique():,}".replace(",", "."))
 
             # Top categorie imminenti
-            imm_cat = imminenti.groupby('_categoria')['ocid'].count().sort_values(ascending=False).head(5)
+            imm_cat = imminenti.groupby('_categoria', observed=True)['ocid'].count().sort_values(ascending=False).head(5)
             st.markdown("**Top 5 Categorie con Scadenze Imminenti:**")
             for cat, count in imm_cat.items():
                 st.write(f"- {cat}: {count} contratti")
@@ -3273,7 +3270,7 @@ if tab12:
     supplier_col = 'supplier_name' if 'supplier_name' in filtered_df.columns else 'award_supplier_name'
 
     # Get top suppliers for selection
-    top_suppliers_for_compare = filtered_df.groupby(supplier_col)['award_amount'].sum().sort_values(ascending=False).head(100).index.tolist()
+    top_suppliers_for_compare = filtered_df.groupby(supplier_col, observed=True)['award_amount'].sum().sort_values(ascending=False).head(100).index.tolist()
 
     col1, col2 = st.columns(2)
     with col1:
@@ -3319,9 +3316,9 @@ if tab12:
 
         with col1:
             st.markdown("### 📈 Trend Annuale Comparato")
-            trend_a = df_a.groupby('anno').agg({'award_amount': 'sum', 'ocid': 'count'}).reset_index()
+            trend_a = df_a.groupby('anno', observed=True).agg({'award_amount': 'sum', 'ocid': 'count'}).reset_index()
             trend_a['Aggiudicatario'] = supplier_a[:30]
-            trend_b = df_b.groupby('anno').agg({'award_amount': 'sum', 'ocid': 'count'}).reset_index()
+            trend_b = df_b.groupby('anno', observed=True).agg({'award_amount': 'sum', 'ocid': 'count'}).reset_index()
             trend_b['Aggiudicatario'] = supplier_b[:30]
             trend_compare = pd.concat([trend_a, trend_b])
 
@@ -3334,9 +3331,9 @@ if tab12:
             st.markdown("### 📦 Categorie a Confronto")
             cat_col = '_categoria' if '_categoria' in filtered_df.columns else 'categoria'
             if cat_col in df_a.columns:
-                cat_a = df_a.groupby(cat_col)['award_amount'].sum().reset_index()
+                cat_a = df_a.groupby(cat_col, observed=True)['award_amount'].sum().reset_index()
                 cat_a['Aggiudicatario'] = supplier_a[:20]
-                cat_b = df_b.groupby(cat_col)['award_amount'].sum().reset_index()
+                cat_b = df_b.groupby(cat_col, observed=True)['award_amount'].sum().reset_index()
                 cat_b['Aggiudicatario'] = supplier_b[:20]
                 cat_compare = pd.concat([cat_a, cat_b])
 
@@ -3353,7 +3350,7 @@ if tab12:
             col1, col2 = st.columns(2)
 
             with col1:
-                reg_a = df_a.groupby(region_col)['award_amount'].sum().sort_values(ascending=False).head(10).reset_index()
+                reg_a = df_a.groupby(region_col, observed=True)['award_amount'].sum().sort_values(ascending=False).head(10).reset_index()
                 reg_a.columns = ['Regione', 'Valore']
                 st.markdown(f"**🔵 Top Regioni {supplier_a[:25]}**")
                 fig = px.bar(reg_a, x='Valore', y='Regione', orientation='h', color_discrete_sequence=['#636EFA'])
@@ -3361,7 +3358,7 @@ if tab12:
                 st.plotly_chart(fig, width="stretch", key="influence_a")
 
             with col2:
-                reg_b = df_b.groupby(region_col)['award_amount'].sum().sort_values(ascending=False).head(10).reset_index()
+                reg_b = df_b.groupby(region_col, observed=True)['award_amount'].sum().sort_values(ascending=False).head(10).reset_index()
                 reg_b.columns = ['Regione', 'Valore']
                 st.markdown(f"**🔴 Top Regioni {supplier_b[:25]}**")
                 fig = px.bar(reg_b, x='Valore', y='Regione', orientation='h', color_discrete_sequence=['#EF553B'])
@@ -3417,9 +3414,9 @@ if tab13:
         if 'mese' in filtered_df.columns and filtered_df['mese'].notna().any():
             df_monthly = filtered_df[filtered_df['mese'].notna()].copy()
             # Aggrega - conta righe e somma importi
-            monthly = df_monthly.groupby('mese').size().reset_index(name='n_gare')
+            monthly = df_monthly.groupby('mese', observed=True).size().reset_index(name='n_gare')
             if amount_col_stag:
-                monthly['valore'] = df_monthly.groupby('mese')[amount_col_stag].sum().values
+                monthly['valore'] = df_monthly.groupby('mese', observed=True)[amount_col_stag].sum().values
 
             monthly['mese_nome'] = monthly['mese'].map({
                 1: 'Gen', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'Mag', 6: 'Giu',
@@ -3451,7 +3448,7 @@ if tab13:
             df_with_dates = filtered_df[filtered_df['mese'].notna() & filtered_df['anno'].notna()]
             if len(df_with_dates) > 0:
                 # Conta per anno e mese
-                pivot_monthly = df_with_dates.groupby(['anno', 'mese']).size().reset_index(name='n_gare')
+                pivot_monthly = df_with_dates.groupby(['anno', 'mese'], observed=True).size().reset_index(name='n_gare')
                 pivot_table = pivot_monthly.pivot(index='mese', columns='anno', values='n_gare').fillna(0)
 
                 mese_names = {1: 'Gen', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'Mag', 6: 'Giu',
@@ -3477,9 +3474,9 @@ if tab13:
             df_quarter['trimestre'] = ((df_quarter['mese'] - 1) // 3) + 1
 
             # Aggrega usando colonne dinamiche
-            quarterly = df_quarter.groupby('trimestre').size().reset_index(name='n_gare')
+            quarterly = df_quarter.groupby('trimestre', observed=True).size().reset_index(name='n_gare')
             if amount_col_stag:
-                quarterly['valore'] = df_quarter.groupby('trimestre')[amount_col_stag].sum().values
+                quarterly['valore'] = df_quarter.groupby('trimestre', observed=True)[amount_col_stag].sum().values
             quarterly['trimestre_nome'] = quarterly['trimestre'].map({1: 'Q1', 2: 'Q2', 3: 'Q3', 4: 'Q4'})
 
             if len(quarterly) > 0 and 'valore' in quarterly.columns:
@@ -3500,7 +3497,7 @@ if tab13:
             df_quarter['trimestre'] = ((df_quarter['mese'] - 1) // 3) + 1
 
             # Calcola valore medio per gara per trimestre
-            quarterly_avg = df_quarter.groupby('trimestre').agg({
+            quarterly_avg = df_quarter.groupby('trimestre', observed=True).agg({
                 amount_col_stag: ['mean', 'median', 'count']
             }).reset_index()
             quarterly_avg.columns = ['trimestre', 'valore_medio', 'valore_mediano', 'n_gare']
@@ -3556,7 +3553,7 @@ if tab13:
 
         # Usa colonna dinamica per supplier
         if supplier_col_stag and amount_col_stag and len(df_years) > 0:
-            top_for_growth = df_years.groupby(supplier_col_stag)[amount_col_stag].sum().sort_values(ascending=False).head(n_suppliers).index.tolist()
+            top_for_growth = df_years.groupby(supplier_col_stag, observed=True)[amount_col_stag].sum().sort_values(ascending=False).head(n_suppliers).index.tolist()
         else:
             top_for_growth = []
     else:
@@ -3571,7 +3568,7 @@ if tab13:
     growth_lines = []
     if supplier_col_stag and amount_col_stag:
         for supplier in top_for_growth:
-            supplier_yearly = df_years[df_years[supplier_col_stag] == supplier].groupby('anno')[amount_col_stag].sum().reset_index()
+            supplier_yearly = df_years[df_years[supplier_col_stag] == supplier].groupby('anno', observed=True)[amount_col_stag].sum().reset_index()
             supplier_yearly['Aggiudicatario'] = supplier[:35]
             supplier_yearly.columns = ['anno', 'valore', 'Aggiudicatario']
             growth_lines.append(supplier_yearly)
@@ -3595,7 +3592,7 @@ if tab13:
         if supplier_col_stag and amount_col_stag:
             for supplier in top_for_growth:
                 supplier_df = df_years[df_years[supplier_col_stag] == supplier]
-                yearly = supplier_df.groupby('anno')[amount_col_stag].sum()
+                yearly = supplier_df.groupby('anno', observed=True)[amount_col_stag].sum()
                 val_inizio = yearly.get(anno_inizio, 0)
                 val_fine = yearly.get(anno_fine, 0)
                 if val_inizio > 0:
@@ -3628,7 +3625,7 @@ if tab13:
         if supplier_col_stag and id_col_stag:
             for supplier in top_for_growth:
                 supplier_df = df_years[df_years[supplier_col_stag] == supplier]
-                yearly_count = supplier_df.groupby('anno')[id_col_stag].count()
+                yearly_count = supplier_df.groupby('anno', observed=True)[id_col_stag].count()
                 count_inizio = yearly_count.get(anno_inizio, 0)
                 count_fine = yearly_count.get(anno_fine, 0)
                 if count_inizio > 0:
@@ -3662,8 +3659,8 @@ if tab13:
     if supplier_col_stag and amount_col_stag and id_col_stag:
         for supplier in top_for_growth:
             supplier_df = df_years[df_years[supplier_col_stag] == supplier]
-            yearly_val = supplier_df.groupby('anno')[amount_col_stag].sum()
-            yearly_cnt = supplier_df.groupby('anno')[id_col_stag].count()
+            yearly_val = supplier_df.groupby('anno', observed=True)[amount_col_stag].sum()
+            yearly_cnt = supplier_df.groupby('anno', observed=True)[id_col_stag].count()
 
             val_inizio = yearly_val.get(anno_inizio, 0)
             val_fine = yearly_val.get(anno_fine, 0)
@@ -3713,7 +3710,7 @@ if tab14:
 
         with col1:
             st.markdown("#### 🤝 Top Coppie Ente-Fornitore")
-            relationships = filtered_df.groupby([buyer_col_net, supplier_col_net]).agg({
+            relationships = filtered_df.groupby([buyer_col_net, supplier_col_net], observed=True).agg({
                 id_col_net: 'count',
                 amount_col_net: 'sum'
             }).reset_index()
@@ -3732,8 +3729,8 @@ if tab14:
 
         with col2:
             st.markdown("#### 🏆 Fornitori più Fedeli (ripetuti)")
-            loyalty = filtered_df.groupby([supplier_col_net, buyer_col_net]).size().reset_index(name='gare_insieme')
-            loyalty_agg = loyalty.groupby(supplier_col_net).agg({
+            loyalty = filtered_df.groupby([supplier_col_net, buyer_col_net], observed=True).size().reset_index(name='gare_insieme')
+            loyalty_agg = loyalty.groupby(supplier_col_net, observed=True).agg({
                 buyer_col_net: 'count',  # quanti enti diversi
                 'gare_insieme': 'sum'   # totale gare
             }).reset_index()
@@ -3757,7 +3754,7 @@ if tab14:
 
         with col1:
             st.markdown("#### 🎯 Enti con più Fornitori Diversi")
-            enti_diversity = filtered_df.groupby(buyer_col_net)[supplier_col_net].nunique().sort_values(ascending=False).head(15).reset_index()
+            enti_diversity = filtered_df.groupby(buyer_col_net, observed=True)[supplier_col_net].nunique().sort_values(ascending=False).head(15).reset_index()
             enti_diversity.columns = ['Ente', 'N. Fornitori']
 
             fig = px.bar(enti_diversity, x='N. Fornitori', y='Ente', orientation='h',
@@ -3768,7 +3765,7 @@ if tab14:
         with col2:
             st.markdown("#### ⚠️ Enti con Alta Concentrazione (pochi fornitori)")
             # Enti con almeno 10 gare ma pochi fornitori
-            enti_stats = filtered_df.groupby(buyer_col_net).agg({
+            enti_stats = filtered_df.groupby(buyer_col_net, observed=True).agg({
                 id_col_net: 'count',
                 supplier_col_net: 'nunique'
             }).reset_index()
@@ -4299,14 +4296,14 @@ if tab17:
 
                         # Categorie
                         if category_col and category_col in sup_data.columns:
-                            cats = sup_data.groupby(category_col).size().nlargest(5)
+                            cats = sup_data.groupby(category_col, observed=True).size().nlargest(5)
                             report += f"- **Categorie principali:**\n"
                             for cat, count in cats.items():
                                 report += f"  - {cat}: {count} gare\n"
 
                         # Andamento per anno
                         if 'anno' in sup_data.columns:
-                            yearly = sup_data.groupby('anno').agg({
+                            yearly = sup_data.groupby('anno', observed=True).agg({
                                 supplier_col: 'count',
                                 amount_col: 'sum' if amount_col else 'count'
                             }).reset_index()
@@ -4403,8 +4400,8 @@ if tab17:
                 with st.spinner("🤔 Analizzo..."):
                     df_summary = f"""
 DATI: {len(filtered_df):,} gare, €{filtered_df[amount_col].sum()/1e9:.2f}B totali
-TOP 5 FORNITORI: {filtered_df.groupby(supplier_col)[amount_col].sum().nlargest(5).to_dict() if supplier_col and amount_col else 'N/A'}
-TOP 5 CATEGORIE: {filtered_df.groupby(category_col)[amount_col].sum().nlargest(5).to_dict() if category_col and amount_col else 'N/A'}
+TOP 5 FORNITORI: {filtered_df.groupby(supplier_col, observed=True)[amount_col].sum().nlargest(5).to_dict() if supplier_col and amount_col else 'N/A'}
+TOP 5 CATEGORIE: {filtered_df.groupby(category_col, observed=True)[amount_col].sum().nlargest(5).to_dict() if category_col and amount_col else 'N/A'}
 """
                     chat_prompt = f"Domanda: {chat_input}\n\nDati disponibili:\n{df_summary}\n\nRispondi in italiano, brevemente."
                     response = call_responses_api(chat_prompt, "Esperto gare pubbliche. Risposte brevi e precise.")
@@ -4468,7 +4465,7 @@ if tab18:
         if 'anno' in df.columns:
             agg_dict['anno'] = ['min', 'max']
 
-        supplier_stats = df.groupby(supplier_col).agg(agg_dict).reset_index()
+        supplier_stats = df.groupby(supplier_col, observed=True).agg(agg_dict).reset_index()
         supplier_stats.columns = ['supplier', 'n_gare', 'valore_tot', 'valore_medio', 'sconto_medio', 'anno_min', 'anno_max'][:len(supplier_stats.columns)]
 
         if 'anno_min' in supplier_stats.columns and 'anno_max' in supplier_stats.columns:
@@ -4476,7 +4473,7 @@ if tab18:
             supplier_stats['gare_per_anno'] = supplier_stats['n_gare'] / supplier_stats['anni_attivita'].replace(0, 1)
 
         # Category performance
-        cat_perf = df.groupby([supplier_col, category_col]).size().reset_index(name='wins_in_cat')
+        cat_perf = df.groupby([supplier_col, category_col], observed=True).size().reset_index(name='wins_in_cat')
 
         return supplier_stats, cat_perf, supplier_col, category_col, amount_col
 
@@ -4532,7 +4529,7 @@ if tab18:
                         if 'sconto' in cat_data.columns:
                             agg_dict['sconto'] = 'mean'
 
-                        cat_winners = cat_data.groupby(supplier_col).agg(agg_dict).reset_index()
+                        cat_winners = cat_data.groupby(supplier_col, observed=True).agg(agg_dict).reset_index()
                         col_names = ['Fornitore', 'Gare Vinte']
                         if amt_col in cat_data.columns:
                             col_names.append('Valore Totale')
@@ -4632,7 +4629,7 @@ if tab18:
             if amt_col_val in supplier_data.columns:
                 agg_bd[amt_col_val] = 'sum'
 
-            cat_breakdown = supplier_data.groupby(cat_col_name).agg(agg_bd).reset_index()
+            cat_breakdown = supplier_data.groupby(cat_col_name, observed=True).agg(agg_bd).reset_index()
             if amt_col_val in supplier_data.columns:
                 cat_breakdown.columns = ['Categoria', 'N. Gare', 'Valore']
             else:
@@ -4696,10 +4693,10 @@ if tab19:
 
     if map_type == "🌡️ Heatmap Valore":
         if regione_col and amount_col:
-            region_data = filtered_df.groupby(regione_col).agg({
+            region_data = filtered_df.groupby(regione_col, observed=True).agg({
                 amount_col: 'sum'
             }).reset_index()
-            region_data['N_Gare'] = filtered_df.groupby(regione_col).size().values
+            region_data['N_Gare'] = filtered_df.groupby(regione_col, observed=True).size().values
             region_data.columns = ['Regione', 'Valore', 'N_Gare']
 
             # Add coordinates
@@ -4733,10 +4730,10 @@ if tab19:
     elif map_type == "📍 Cluster Città":
         if comune_col and amount_col:
             # Aggregazione per comune
-            city_data = filtered_df.groupby(comune_col).agg({
+            city_data = filtered_df.groupby(comune_col, observed=True).agg({
                 amount_col: 'sum'
             }).reset_index()
-            city_data['N_Gare'] = filtered_df.groupby(comune_col).size().values
+            city_data['N_Gare'] = filtered_df.groupby(comune_col, observed=True).size().values
             city_data.columns = ['Città', 'Valore', 'N_Gare']
             city_data['Valore_M'] = city_data['Valore'] / 1e6
 
@@ -4784,10 +4781,10 @@ if tab19:
                     with col1:
                         # Top categories in region
                         if categoria_col and amount_col:
-                            cat_region = region_df.groupby(categoria_col).agg({
+                            cat_region = region_df.groupby(categoria_col, observed=True).agg({
                                 amount_col: 'sum'
                             }).reset_index()
-                            cat_region['N_Gare'] = region_df.groupby(categoria_col).size().values
+                            cat_region['N_Gare'] = region_df.groupby(categoria_col, observed=True).size().values
                             cat_region.columns = ['Categoria', 'Valore', 'N_Gare']
                             cat_region = cat_region.nlargest(10, 'Valore')
 
@@ -4806,10 +4803,10 @@ if tab19:
                     with col2:
                         # Top suppliers in region
                         if supplier_col and amount_col:
-                            sup_region = region_df.groupby(supplier_col).agg({
+                            sup_region = region_df.groupby(supplier_col, observed=True).agg({
                                 amount_col: 'sum'
                             }).reset_index()
-                            sup_region['N_Gare'] = region_df.groupby(supplier_col).size().values
+                            sup_region['N_Gare'] = region_df.groupby(supplier_col, observed=True).size().values
                             sup_region.columns = ['Fornitore', 'Valore', 'N_Gare']
                             sup_region = sup_region.nlargest(10, 'Valore')
 
@@ -4829,10 +4826,10 @@ if tab19:
                     if 'anno' in region_df.columns and amount_col:
                         trend_data = region_df[region_df['anno'].between(2018, 2025)]
                         if len(trend_data) > 0:
-                            trend_region = trend_data.groupby('anno').agg({
+                            trend_region = trend_data.groupby('anno', observed=True).agg({
                                 amount_col: 'sum'
                             }).reset_index()
-                            trend_region['N_Gare'] = trend_data.groupby('anno').size().values
+                            trend_region['N_Gare'] = trend_data.groupby('anno', observed=True).size().values
                             trend_region.columns = ['Anno', 'Valore', 'N_Gare']
 
                             fig = make_subplots(specs=[[{"secondary_y": True}]])
@@ -4860,10 +4857,10 @@ if tab19:
 
             if len(anim_df) > 0:
                 # Prepare data by year and region
-                anim_data = anim_df.groupby(['anno', regione_col]).agg({
+                anim_data = anim_df.groupby(['anno', regione_col], observed=True).agg({
                     amount_col: 'sum'
                 }).reset_index()
-                anim_data['N_Gare'] = anim_df.groupby(['anno', regione_col]).size().values
+                anim_data['N_Gare'] = anim_df.groupby(['anno', regione_col], observed=True).size().values
                 anim_data.columns = ['Anno', 'Regione', 'Valore', 'N_Gare']
 
                 # Add coordinates
@@ -4890,7 +4887,7 @@ if tab19:
                 st.plotly_chart(fig, width="stretch")
 
                 # Summary stats
-                year_totals = anim_data.groupby('Anno')['Valore'].sum() / 1e9
+                year_totals = anim_data.groupby('Anno', observed=True)['Valore'].sum() / 1e9
                 fig2 = px.area(
                     x=year_totals.index,
                     y=year_totals.values,
