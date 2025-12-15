@@ -622,6 +622,18 @@ if 'sconto' in raw_df.columns:
     raw_df.loc[raw_df['sconto'] <= 0, 'sconto'] = np.nan  # 0 e negativi -> NaN
     raw_df.loc[raw_df['sconto'] > 100, 'sconto'] = np.nan
 
+# Normalizza nomi regioni (unifica varianti)
+if 'regione' in raw_df.columns:
+    regioni_map = {
+        'Emilia romagna': 'Emilia-Romagna',
+        'Friuli venezia giulia': 'Friuli-Venezia Giulia',
+        'Valle d\'aosta': 'Valle d\'Aosta',
+        'Provincia autonoma di trento': 'Trentino-Alto Adige',
+        'Centrale': 'Lazio',  # Assume "Centrale" = Roma/Lazio
+        'Non classificato': None,  # Rimuovi non classificati
+    }
+    raw_df['regione'] = raw_df['regione'].replace(regioni_map)
+
 # Sidebar filters
 st.sidebar.title("🔍 Filtri")
 
