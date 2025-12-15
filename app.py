@@ -481,7 +481,7 @@ def load_data():
             return json.load(f)
     return {}
 
-@st.cache_data
+@st.cache_data(ttl=3600)  # Cache per 1 ora, poi ricarica - v2 con 17k sconti
 def load_raw_data():
     # Path per Streamlit Cloud deployment (file compresso)
     gz_path = Path(__file__).parent / "data" / "gare_unificate.csv.gz"
