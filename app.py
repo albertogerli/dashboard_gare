@@ -464,10 +464,15 @@ def render_chart_with_save(fig, chart_title: str, chart_description: str, chart_
 # Load data
 @st.cache_data
 def load_data():
-    # Per Streamlit Cloud non serve data.json - usiamo solo il CSV
-    data_path = Path(__file__).parent.parent / "data" / "output" / "dashboard" / "data.json"
-    if data_path.exists():
-        with open(data_path) as f:
+    # Path per Streamlit Cloud (file nella cartella data/)
+    cloud_path = Path(__file__).parent / "data" / "data.json"
+    local_path = Path(__file__).parent.parent / "data" / "output" / "dashboard" / "data.json"
+
+    if cloud_path.exists():
+        with open(cloud_path) as f:
+            return json.load(f)
+    elif local_path.exists():
+        with open(local_path) as f:
             return json.load(f)
     return {}
 
