@@ -631,9 +631,10 @@ if 'regione' in raw_df.columns:
         'Valle d\'aosta': 'Valle d\'Aosta',
         'Provincia autonoma di trento': 'Trentino-Alto Adige',
         'Centrale': 'Lazio',  # Assume "Centrale" = Roma/Lazio
-        'Non classificato': None,  # Rimuovi non classificati
+        'Non classificato': np.nan,  # Rimuovi non classificati
     }
-    raw_df['regione'] = raw_df['regione'].replace(regioni_map)
+    # Converti a string prima di replace per evitare warning con CategoricalDtype
+    raw_df['regione'] = raw_df['regione'].astype(str).replace(regioni_map).astype('category')
 
 # Sidebar filters
 st.sidebar.title("🔍 Filtri")
