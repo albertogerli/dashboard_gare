@@ -1470,8 +1470,10 @@ if tab6:
             )
             sconto_mean = valid_sconti['sconto'].mean()
             sconto_median = valid_sconti['sconto'].median()
-            fig.add_vline(x=sconto_mean, line_dash="dash", line_color="red", annotation_text=f"Media: {sconto_mean:.1f}%")
-            fig.add_vline(x=sconto_median, line_dash="dash", line_color="green", annotation_text=f"Mediana: {sconto_median:.1f}%")
+            fig.add_vline(x=sconto_mean, line_dash="dash", line_color="red",
+                          annotation_text=f"Media: {sconto_mean:.1f}%", annotation_position="top right")
+            fig.add_vline(x=sconto_median, line_dash="dash", line_color="green",
+                          annotation_text=f"Mediana: {sconto_median:.1f}%", annotation_position="bottom right")
             fig.update_layout(height=350)
             st.plotly_chart(fig, width="stretch")
             st.caption(f"ℹ️ Analisi basata su {len(valid_sconti):,} gare con sconto > 0%")
