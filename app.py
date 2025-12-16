@@ -812,12 +812,18 @@ unique_buyers = filtered_df[buyer_col].nunique() if buyer_col else 0
 # Unique suppliers
 unique_suppliers = filtered_df[supplier_col].nunique() if supplier_col else 0
 
-col1.metric("🏛️ Totale Gare", f"{total_gare:,}".replace(",", "."))
-col2.metric("💰 Valore Totale", f"€{total_value/1e9:.2f}B" if total_value > 0 else "€0")
-col3.metric("📉 Sconto Medio", f"{avg_sconto:.1f}%" if pd.notna(avg_sconto) and not np.isnan(avg_sconto) else "N/D")
-col4.metric("👥 Partecipanti Medi", f"{avg_participants:.1f}" if pd.notna(avg_participants) and not np.isnan(avg_participants) else "N/D")
-col5.metric("🏢 Stazioni Appaltanti", f"{unique_buyers:,}".replace(",", "."))
-col6.metric("🏭 Fornitori Unici", f"{unique_suppliers:,}".replace(",", "."))
+col1.metric("🏛️ Totale Gare", f"{total_gare:,}".replace(",", "."),
+            help="Numero totale di gare/lotti nel dataset filtrato")
+col2.metric("💰 Valore Totale", f"€{total_value/1e9:.2f}B" if total_value > 0 else "€0",
+            help="Somma degli importi di aggiudicazione di tutte le gare")
+col3.metric("📉 Sconto Medio", f"{avg_sconto:.1f}%" if pd.notna(avg_sconto) and not np.isnan(avg_sconto) else "N/D",
+            help="Media dei ribassi percentuali offerti rispetto alla base d'asta")
+col4.metric("👥 Partecipanti Medi", f"{avg_participants:.1f}" if pd.notna(avg_participants) and not np.isnan(avg_participants) else "N/D",
+            help="Numero medio di offerte ricevute per gara")
+col5.metric("🏢 Stazioni Appaltanti", f"{unique_buyers:,}".replace(",", "."),
+            help="Numero di enti pubblici distinti che hanno bandito gare")
+col6.metric("🏭 Fornitori Unici", f"{unique_suppliers:,}".replace(",", "."),
+            help="Numero di imprese diverse che hanno vinto almeno una gara")
 
 # Row 2: More KPIs (fonti dati) - tutti basati su filtered_df
 col1, col2, col3, col4, col5, col6 = st.columns(6)
@@ -845,12 +851,18 @@ else:
 chiave_col = get_col(filtered_df, ['chiave', 'cig', 'CIG', 'ocid'])
 chiavi_uniche = filtered_df[chiave_col].nunique() if chiave_col else total_gare
 
-col1.metric("📊 Valore Mediano", f"€{median_value/1e3:.0f}K" if median_value > 0 else "N/D")
-col2.metric("🔝 Gara Max", f"€{max_value/1e6:.1f}M" if max_value > 0 else "N/D")
-col3.metric("📰 Gazzetta", f"{gare_gazzetta:,}".replace(",", "."))
-col4.metric("📊 OCDS", f"{gare_ocds:,}".replace(",", "."))
-col5.metric("🏛️ CONSIP", f"{gare_consip:,}".replace(",", "."))
-col6.metric("🔑 Chiavi Uniche", f"{chiavi_uniche:,}".replace(",", "."))
+col1.metric("📊 Valore Mediano", f"€{median_value/1e3:.0f}K" if median_value > 0 else "N/D",
+            help="Valore centrale: 50% delle gare ha importo inferiore, 50% superiore")
+col2.metric("🔝 Gara Max", f"€{max_value/1e6:.1f}M" if max_value > 0 else "N/D",
+            help="Gara con l'importo di aggiudicazione più alto nel dataset")
+col3.metric("📰 Gazzetta", f"{gare_gazzetta:,}".replace(",", "."),
+            help="Gare estratte dalla Gazzetta Ufficiale Europea (TED)")
+col4.metric("📊 OCDS", f"{gare_ocds:,}".replace(",", "."),
+            help="Gare dal portale ANAC in formato Open Contracting Data Standard")
+col5.metric("🏛️ CONSIP", f"{gare_consip:,}".replace(",", "."),
+            help="Gare da convenzioni CONSIP (Servizio Luce, SIE)")
+col6.metric("🔑 Chiavi Uniche", f"{chiavi_uniche:,}".replace(",", "."),
+            help="Numero di identificativi univoci (CIG o OCID) distinti")
 
 # ==================== TAB NAVIGATION (CLUSTER UI) ====================
 st.markdown("---")
