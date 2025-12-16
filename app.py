@@ -1210,17 +1210,22 @@ if tab4:
             # Fallback ai dati pre-calcolati
             top_df = pd.DataFrame(data['top_aggiudicatari'])
 
+        # Tronca nomi troppo lunghi per visualizzazione
+        top_df['Aggiudicatario_display'] = top_df['Aggiudicatario'].apply(
+            lambda x: x[:35] + '...' if isinstance(x, str) and len(x) > 38 else x
+        )
+
         fig_top = px.bar(
             top_df,
             x='valore',
-            y='Aggiudicatario',
+            y='Aggiudicatario_display',
             orientation='h',
             color='num_gare',
             color_continuous_scale='Viridis',
             text=top_df['valore'].apply(lambda x: f'€{x/1e6:.0f}M'),
-            labels={'valore': 'Valore (€)', 'num_gare': 'N. Gare'}
+            labels={'valore': 'Valore (€)', 'num_gare': 'N. Gare', 'Aggiudicatario_display': 'Aggiudicatario'}
         )
-        fig_top.update_layout(height=600, yaxis={'categoryorder': 'total ascending'})
+        fig_top.update_layout(height=600, yaxis={'categoryorder': 'total ascending', 'title': 'Aggiudicatario'})
         fig_top.update_traces(textposition='outside')
         render_chart_with_save(fig_top, "Top 20 Aggiudicatari", "Ranking aggiudicatari per valore totale aggiudicazioni", "top_aggiudicatari")
 
@@ -2411,16 +2416,22 @@ if tab9:
                 top_suppliers_summary.columns = new_cols[:len(top_suppliers_summary.columns)]
                 top_suppliers_summary = top_suppliers_summary.sort_values('Valore (€)' if 'Valore (€)' in top_suppliers_summary.columns else 'N. Gare', ascending=False).head(50)
 
+                # Tronca nomi troppo lunghi per visualizzazione
+                top_suppliers_summary['Aggiudicatario_display'] = top_suppliers_summary['Aggiudicatario'].apply(
+                    lambda x: x[:35] + '...' if isinstance(x, str) and len(x) > 38 else x
+                )
+
                 fig = px.bar(
                     top_suppliers_summary.head(20),
                     x='Valore (€)' if 'Valore (€)' in top_suppliers_summary.columns else 'N. Gare',
-                    y='Aggiudicatario',
+                    y='Aggiudicatario_display',
                     orientation='h',
                     color='N. Gare' if 'N. Gare' in top_suppliers_summary.columns else None,
                     color_continuous_scale='Viridis',
-                    text=top_suppliers_summary.head(20)['Valore (€)'].apply(lambda x: f'€{x/1e9:.1f}B' if x > 1e9 else f'€{x/1e6:.0f}M') if 'Valore (€)' in top_suppliers_summary.columns else None
+                    text=top_suppliers_summary.head(20)['Valore (€)'].apply(lambda x: f'€{x/1e9:.1f}B' if x > 1e9 else f'€{x/1e6:.0f}M') if 'Valore (€)' in top_suppliers_summary.columns else None,
+                    labels={'Aggiudicatario_display': 'Aggiudicatario'}
                 )
-                fig.update_layout(height=600, yaxis={'categoryorder': 'total ascending'})
+                fig.update_layout(height=600, yaxis={'categoryorder': 'total ascending', 'title': 'Aggiudicatario'})
                 fig.update_traces(textposition='outside')
                 render_chart_with_save(fig, "Top 20 Aggiudicatari (Da ricerca)", "Classifica top 20 aggiudicatari per valore", "top50_aggiudicatari")
 
