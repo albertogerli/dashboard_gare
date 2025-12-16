@@ -666,27 +666,71 @@ if 'procedura' in raw_df.columns:
 # Sidebar filters
 st.sidebar.title("🔍 Filtri")
 
-# Fonte filter (Gazzetta/OCDS/ServizioLuce)
+# CSS per migliorare l'aspetto dei selectbox
+st.sidebar.markdown("""
+<style>
+/* Stile dropdown più chiaro */
+div[data-baseweb="select"] > div {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+div[data-baseweb="select"] > div:hover {
+    border-color: #1f77b4;
+}
+/* Radio buttons orizzontali compatti */
+div.row-widget.stRadio > div {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+div.row-widget.stRadio > div > label {
+    padding: 0.25rem 0.5rem;
+    background: #f0f2f6;
+    border-radius: 4px;
+    margin: 0;
+    font-size: 0.85rem;
+}
+div.row-widget.stRadio > div > label:has(input:checked) {
+    background: #1f77b4;
+    color: white;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Fonte filter (radio buttons - poche opzioni)
 if 'fonte' in raw_df.columns:
-    fonti_disponibili = raw_df['fonte'].dropna().unique().tolist()
-    fonti = [None] + sorted(fonti_disponibili)
-    fonte_sel = st.sidebar.selectbox("Fonte dati", fonti, format_func=lambda x: "Tutte" if x is None else x)
+    fonti_disponibili = sorted(raw_df['fonte'].dropna().unique().tolist())
+    fonte_options = ["Tutte"] + fonti_disponibili
+    fonte_sel_label = st.sidebar.radio("Fonte dati", fonte_options, horizontal=True)
+    fonte_sel = None if fonte_sel_label == "Tutte" else fonte_sel_label
 else:
     fonte_sel = None
 
-# Anno filter
-anni = [None] + sorted([int(y) for y in raw_df['anno'].dropna().unique() if 2015 <= y <= 2025])
-anno_sel = st.sidebar.selectbox("Anno", anni, format_func=lambda x: "Tutti" if x is None else str(x))
+# Anno filter (selectbox - molte opzioni ordinate)
+anni = [None] + sorted([int(y) for y in raw_df['anno'].dropna().unique() if 2015 <= y <= 2025], reverse=True)
+anno_sel = st.sidebar.selectbox("📅 Anno", anni, format_func=lambda x: "Tutti gli anni" if x is None else str(x))
 
-# Regione filter
+# Regione filter (selectbox - molte opzioni)
 if 'regione' in raw_df.columns and raw_df['regione'].notna().any():
     regioni_df = sorted(raw_df['regione'].dropna().unique().tolist())
     regioni = [None] + regioni_df
 else:
     regioni = [None] + [r['Regione'] for r in data['geo']]
-regione_sel = st.sidebar.selectbox("Regione", regioni, format_func=lambda x: "Tutte" if x is None else x)
+regione_sel = st.sidebar.selectbox("🗺️ Regione", regioni, format_func=lambda x: "Tutte le regioni" if x is None else x)
 
-# Categoria filter - usa colonna normalizzata 'categoria' se disponibile
+# Tipo Appalto filter (radio - poche opzioni)
+if 'tipo_appalto' in raw_df.columns and raw_df['tipo_appalto'].notna().any():
+    tipo_list = sorted(raw_df['tipo_appalto'].dropna().unique().tolist())
+    tipo_options = ["Tutti"] + tipo_list
+    tipo_sel_label = st.sidebar.radio("Tipo Appalto", tipo_options, horizontal=True)
+    tipo_appalto_sel = None if tipo_sel_label == "Tutti" else tipo_sel_label
+else:
+    tipo_appalto_sel = None
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("**Filtri avanzati**")
+
+# Categoria filter (selectbox - molte opzioni)
 if 'categoria' in raw_df.columns and raw_df['categoria'].notna().any():
     cat_list = sorted(raw_df['categoria'].dropna().unique().tolist())
     categorie = [None] + cat_list
@@ -695,36 +739,26 @@ elif '_categoria' in raw_df.columns and raw_df['_categoria'].notna().any():
     categorie = [None] + cat_list
 else:
     categorie = [None] + data['filter_options']['categorie_macro']
-categoria_sel = st.sidebar.selectbox("Categoria", categorie, format_func=lambda x: "Tutte" if x is None else x)
+categoria_sel = st.sidebar.selectbox("🏷️ Categoria", categorie, format_func=lambda x: "Tutte le categorie" if x is None else x)
 
-# Procedura filter - usa colonna normalizzata
-if 'procedura' in raw_df.columns and raw_df['procedura'].notna().any():
-    proc_list = sorted(raw_df['procedura'].dropna().unique().tolist())
-    procedure = [None] + proc_list
-    procedura_sel = st.sidebar.selectbox("Procedura", procedure, format_func=lambda x: "Tutte" if x is None else x)
-else:
-    procedura_sel = None
-
-# Tipo Appalto filter - usa colonna normalizzata
-if 'tipo_appalto' in raw_df.columns and raw_df['tipo_appalto'].notna().any():
-    tipo_list = sorted(raw_df['tipo_appalto'].dropna().unique().tolist())
-    tipi_appalto = [None] + tipo_list
-    tipo_appalto_sel = st.sidebar.selectbox("Tipo Appalto", tipi_appalto, format_func=lambda x: "Tutti" if x is None else x)
-else:
-    tipo_appalto_sel = None
-
-# Sottocategoria filter (dinamico basato su categoria) - usa quick_category
+# Sottocategoria filter (dinamico basato su categoria)
 if 'quick_category' in raw_df.columns:
     if categoria_sel and 'categoria' in raw_df.columns:
-        # Filtra quick_category in base alla categoria selezionata
         sottocategorie_list = sorted(raw_df[raw_df['categoria'] == categoria_sel]['quick_category'].dropna().unique().tolist())
     else:
-        # Mostra tutte le quick_category
         sottocategorie_list = sorted(raw_df['quick_category'].dropna().unique().tolist())
     sottocategorie = [None] + sottocategorie_list
 else:
     sottocategorie = [None]
-sottocategoria_sel = st.sidebar.selectbox("Sottocategoria", sottocategorie, format_func=lambda x: "Tutte" if x is None else x)
+sottocategoria_sel = st.sidebar.selectbox("📂 Sottocategoria", sottocategorie, format_func=lambda x: "Tutte" if x is None else x)
+
+# Procedura filter (selectbox - molte opzioni)
+if 'procedura' in raw_df.columns and raw_df['procedura'].notna().any():
+    proc_list = sorted(raw_df['procedura'].dropna().unique().tolist())
+    procedure = [None] + proc_list
+    procedura_sel = st.sidebar.selectbox("⚖️ Procedura", procedure, format_func=lambda x: "Tutte le procedure" if x is None else x)
+else:
+    procedura_sel = None
 
 # Apply filters to raw data
 filtered_df = raw_df.copy()
