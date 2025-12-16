@@ -1061,7 +1061,7 @@ if tab1:
         else:
             st.info("Colonna regione non disponibile")
 
-    # Dettaglio regioni
+    # Dettaglio regioni con selezione interattiva
     st.subheader("📋 Dettaglio per Regione")
     if regione_col_geo and amount_col_geo and id_col_geo:
         geo_detail = filtered_df.groupby(regione_col_geo, observed=True).agg({
@@ -1074,7 +1074,104 @@ if tab1:
         geo_detail = geo_detail.dropna(subset=['Regione'])
         geo_detail = geo_detail[geo_detail['Regione'] != '']
         geo_detail = geo_detail.sort_values('valore', ascending=False)
+
+        # Mostra tabella
         st.dataframe(geo_detail[['Regione', 'N. Gare', 'Valore (€B)', 'Sconto Medio %']], use_container_width=True)
+
+        # Selezione regione per vedere dettaglio gare
+        st.markdown("---")
+        st.subheader("🔍 Esplora Gare per Regione")
+
+        regioni_disponibili = ["Tutte le regioni"] + geo_detail['Regione'].tolist()
+        regione_esplora = st.selectbox("Seleziona regione da esplorare", regioni_disponibili, key="esplora_regione")
+
+        # Filtra dati per regione selezionata
+        if regione_esplora == "Tutte le regioni":
+            gare_regione = filtered_df.copy()
+            titolo_export = "tutte_regioni"
+        else:
+            gare_regione = filtered_df[filtered_df[regione_col_geo] == regione_esplora]
+            titolo_export = regione_esplora.lower().replace(" ", "_").replace("'", "")
+
+        # Colonne da mostrare nel dettaglio
+        cols_display = ['data_aggiudicazione', 'oggetto', 'ente_appaltante', 'aggiudicatario',
+                        'importo_aggiudicazione', 'sconto', 'categoria', 'procedura', 'comune']
+        cols_available = [c for c in cols_display if c in gare_regione.columns]
+
+        # Ordina per data più recente
+        if 'data_aggiudicazione' in gare_regione.columns:
+            gare_regione = gare_regione.sort_values('data_aggiudicazione', ascending=False)
+
+        # Mostra statistiche
+        col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
+        col_stat1.metric("Gare totali", f"{len(gare_regione):,}".replace(",", "."))
+        col_stat2.metric("Valore totale", f"€{gare_regione[amount_col_geo].sum()/1e6:.1f}M")
+        col_stat3.metric("Sconto medio", f"{gare_regione['sconto'].mean():.1f}%" if gare_regione['sconto'].notna().any() else "N/D")
+        col_stat4.metric("Enti coinvolti", f"{gare_regione['ente_appaltante'].nunique():,}".replace(",", ".") if 'ente_appaltante' in gare_regione.columns else "N/D")
+
+        # Mostra ultime gare
+        st.markdown(f"**Ultime {min(100, len(gare_regione))} gare:**")
+        gare_display = gare_regione[cols_available].head(100).copy()
+
+        # Formatta importo per visualizzazione
+        if 'importo_aggiudicazione' in gare_display.columns:
+            gare_display['importo_aggiudicazione'] = gare_display['importo_aggiudicazione'].apply(
+                lambda x: f"€{x/1e6:.2f}M" if pd.notna(x) and x >= 1e6 else (f"€{x/1e3:.0f}K" if pd.notna(x) else "N/D")
+            )
+        if 'sconto' in gare_display.columns:
+            gare_display['sconto'] = gare_display['sconto'].apply(lambda x: f"{x:.1f}%" if pd.notna(x) else "N/D")
+        if 'data_aggiudicazione' in gare_display.columns:
+            gare_display['data_aggiudicazione'] = pd.to_datetime(gare_display['data_aggiudicazione']).dt.strftime('%Y-%m-%d')
+
+        # Rinomina colonne per display
+        col_rename = {
+            'data_aggiudicazione': 'Data',
+            'oggetto': 'Oggetto',
+            'ente_appaltante': 'Ente',
+            'aggiudicatario': 'Aggiudicatario',
+            'importo_aggiudicazione': 'Importo',
+            'sconto': 'Sconto',
+            'categoria': 'Categoria',
+            'procedura': 'Procedura',
+            'comune': 'Comune'
+        }
+        gare_display = gare_display.rename(columns={k: v for k, v in col_rename.items() if k in gare_display.columns})
+
+        st.dataframe(gare_display, use_container_width=True, height=400)
+
+        # Download CSV
+        st.markdown("---")
+        col_dl1, col_dl2 = st.columns(2)
+
+        # Prepara CSV per download (dati completi, non formattati)
+        csv_export = gare_regione[cols_available].copy()
+        csv_data = csv_export.to_csv(index=False).encode('utf-8')
+
+        with col_dl1:
+            st.download_button(
+                label=f"📥 Scarica CSV ({len(gare_regione):,} gare)".replace(",", "."),
+                data=csv_data,
+                file_name=f"gare_{titolo_export}_{pd.Timestamp.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv",
+                help="Scarica tutte le gare della regione selezionata in formato CSV"
+            )
+
+        with col_dl2:
+            # Export Excel se openpyxl disponibile
+            try:
+                from io import BytesIO
+                excel_buffer = BytesIO()
+                csv_export.to_excel(excel_buffer, index=False, engine='openpyxl')
+                excel_data = excel_buffer.getvalue()
+                st.download_button(
+                    label=f"📥 Scarica Excel ({len(gare_regione):,} gare)".replace(",", "."),
+                    data=excel_data,
+                    file_name=f"gare_{titolo_export}_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    help="Scarica tutte le gare della regione selezionata in formato Excel"
+                )
+            except ImportError:
+                pass
     else:
         st.info("Dati geografici non disponibili")
 
