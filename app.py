@@ -1102,11 +1102,11 @@ if tab2:
                 y='valore',
                 size='partecipanti_medi',
                 color='sconto_medio',
-                text='Categoria_Main',
+                hover_name='Categoria_Main',
                 color_continuous_scale='RdYlGn',
-                labels={'num_gare': 'Numero Gare', 'valore': 'Valore (€)', 'sconto_medio': 'Sconto %'}
+                labels={'num_gare': 'Numero Gare', 'valore': 'Valore (€)', 'sconto_medio': 'Sconto %'},
+                hover_data={'partecipanti_medi': ':.1f', 'sconto_medio': ':.1f'}
             )
-            fig.update_traces(textposition='top center', textfont_size=9)
             fig.update_layout(height=450)
             render_chart_with_save(fig, "Scatter Categorie", "Categorie per numero gare vs valore", "scatter_categorie")
         else:
