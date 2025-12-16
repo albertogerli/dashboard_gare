@@ -713,19 +713,15 @@ if 'tipo_appalto' in raw_df.columns and raw_df['tipo_appalto'].notna().any():
 else:
     tipo_appalto_sel = None
 
-# Sottocategoria filter (dinamico basato su categoria) - usa categoria_originale
-if categoria_sel and 'categoria' in raw_df.columns:
-    if 'categoria_originale' in raw_df.columns:
-        sottocategorie_list = sorted(raw_df[raw_df['categoria'] == categoria_sel]['categoria_originale'].dropna().unique().tolist())
-    elif 'categorie_regex' in raw_df.columns:
-        sottocategorie_list = sorted(raw_df[raw_df['categoria'] == categoria_sel]['categorie_regex'].dropna().unique().tolist())
+# Sottocategoria filter (dinamico basato su categoria) - usa quick_category
+if 'quick_category' in raw_df.columns:
+    if categoria_sel and 'categoria' in raw_df.columns:
+        # Filtra quick_category in base alla categoria selezionata
+        sottocategorie_list = sorted(raw_df[raw_df['categoria'] == categoria_sel]['quick_category'].dropna().unique().tolist())
     else:
-        sottocategorie_list = []
+        # Mostra tutte le quick_category
+        sottocategorie_list = sorted(raw_df['quick_category'].dropna().unique().tolist())
     sottocategorie = [None] + sottocategorie_list
-elif 'categoria_originale' in raw_df.columns:
-    sottocategorie = [None] + sorted(raw_df['categoria_originale'].dropna().unique().tolist())[:50]  # Limit per performance
-elif 'categorie_regex' in raw_df.columns:
-    sottocategorie = [None] + sorted(raw_df['categorie_regex'].dropna().unique().tolist())
 else:
     sottocategorie = [None]
 sottocategoria_sel = st.sidebar.selectbox("Sottocategoria", sottocategorie, format_func=lambda x: "Tutte" if x is None else x)
@@ -748,11 +744,8 @@ if procedura_sel and 'procedura' in filtered_df.columns:
     filtered_df = filtered_df[filtered_df['procedura'] == procedura_sel]
 if tipo_appalto_sel and 'tipo_appalto' in filtered_df.columns:
     filtered_df = filtered_df[filtered_df['tipo_appalto'] == tipo_appalto_sel]
-if sottocategoria_sel:
-    if 'categoria_originale' in filtered_df.columns:
-        filtered_df = filtered_df[filtered_df['categoria_originale'] == sottocategoria_sel]
-    elif 'categorie_regex' in filtered_df.columns:
-        filtered_df = filtered_df[filtered_df['categorie_regex'] == sottocategoria_sel]
+if sottocategoria_sel and 'quick_category' in filtered_df.columns:
+    filtered_df = filtered_df[filtered_df['quick_category'] == sottocategoria_sel]
 
 # Crea una chiave unica per i filtri attivi - serve per resettare il multiselect
 filter_key = f"{fonte_sel}_{anno_sel}_{regione_sel}_{categoria_sel}_{procedura_sel}_{tipo_appalto_sel}_{sottocategoria_sel}"
