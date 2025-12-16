@@ -931,107 +931,203 @@ else:  # AI & Preferiti
 # ==================== TAB 1: GEOGRAFIA ====================
 if tab1:
   with tab1:
+    # Identifica colonne dinamicamente
+    regione_col_geo = next((c for c in filtered_df.columns if c.lower() == 'regione'), None)
+    comune_col_geo = next((c for c in filtered_df.columns if c.lower() in ['comune', 'citta', 'buyer_locality']), None)
+    amount_col_geo = next((c for c in filtered_df.columns if c.lower() in ['importo_aggiudicazione', 'award_amount']), None)
+    id_col_geo = next((c for c in filtered_df.columns if c.lower() in ['chiave', 'cig', 'ocid']), None)
+
     col1, col2 = st.columns(2)
 
     with col1:
         st.subheader("🗺️ Mappa Città per Valore")
-        cities_df = pd.DataFrame(data['geo_cities'])
-        fig = px.scatter_map(
-            cities_df,
-            lat='lat',
-            lon='lng',
-            size='valore',
-            color='sconto_medio',
-            hover_name='citta',
-            hover_data={'num_gare': True, 'valore': ':.2s', 'sconto_medio': ':.1f'},
-            color_continuous_scale='RdYlGn',
-            size_max=50,
-            zoom=5,
-            center={'lat': 42.0, 'lon': 12.5},
-        )
-        fig.update_layout(height=500, margin={"r":0,"t":0,"l":0,"b":0})
-        st.plotly_chart(fig, width="stretch")
+        # Calcola dati città da filtered_df
+        if comune_col_geo and amount_col_geo and id_col_geo:
+            # Coordinate città italiane principali
+            city_coords = {
+                'Roma': (41.9028, 12.4964), 'Milano': (45.4642, 9.1900), 'Napoli': (40.8518, 14.2681),
+                'Torino': (45.0703, 7.6869), 'Palermo': (38.1157, 13.3615), 'Genova': (44.4056, 8.9463),
+                'Bologna': (44.4949, 11.3426), 'Firenze': (43.7696, 11.2558), 'Bari': (41.1171, 16.8719),
+                'Catania': (37.5079, 15.0830), 'Venezia': (45.4408, 12.3155), 'Verona': (45.4384, 10.9916),
+                'Messina': (38.1938, 15.5540), 'Padova': (45.4064, 11.8768), 'Trieste': (45.6495, 13.7768),
+                'Brescia': (45.5416, 10.2118), 'Parma': (44.8015, 10.3279), 'Taranto': (40.4644, 17.2470),
+                'Prato': (43.8777, 11.1020), 'Modena': (44.6471, 10.9252), 'Reggio Calabria': (38.1113, 15.6473),
+                'Reggio Emilia': (44.6989, 10.6297), 'Perugia': (43.1107, 12.3908), 'Livorno': (43.5485, 10.3106),
+                'Ravenna': (44.4184, 12.2035), 'Cagliari': (39.2238, 9.1217), 'Foggia': (41.4621, 15.5444),
+                'Rimini': (44.0678, 12.5695), 'Salerno': (40.6824, 14.7681), 'Ferrara': (44.8381, 11.6198)
+            }
+            cities_agg = filtered_df.groupby(comune_col_geo, observed=True).agg({
+                amount_col_geo: 'sum',
+                id_col_geo: 'count',
+                'sconto': 'mean'
+            }).reset_index()
+            cities_agg.columns = ['citta', 'valore', 'num_gare', 'sconto_medio']
+            cities_agg = cities_agg.dropna(subset=['citta'])
+            cities_agg = cities_agg[cities_agg['citta'] != '']
+            # Aggiungi coordinate
+            cities_agg['lat'] = cities_agg['citta'].map(lambda x: city_coords.get(x, (None, None))[0])
+            cities_agg['lng'] = cities_agg['citta'].map(lambda x: city_coords.get(x, (None, None))[1])
+            cities_df = cities_agg.dropna(subset=['lat', 'lng']).sort_values('valore', ascending=False).head(30)
+
+            if len(cities_df) > 0:
+                fig = px.scatter_map(
+                    cities_df,
+                    lat='lat',
+                    lon='lng',
+                    size='valore',
+                    color='sconto_medio',
+                    hover_name='citta',
+                    hover_data={'num_gare': True, 'valore': ':.2s', 'sconto_medio': ':.1f'},
+                    color_continuous_scale='RdYlGn',
+                    size_max=50,
+                    zoom=5,
+                    center={'lat': 42.0, 'lon': 12.5},
+                )
+                fig.update_layout(height=500, margin={"r":0,"t":0,"l":0,"b":0})
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Nessuna città con coordinate disponibili per i filtri selezionati")
+        else:
+            st.info("Colonne geografiche non disponibili")
 
     with col2:
         st.subheader("🇮🇹 Classifica Regioni")
-        geo_df = pd.DataFrame(data['geo'])
-        fig_regioni = px.bar(
-            geo_df,
-            x='valore',
-            y='Regione',
-            orientation='h',
-            color='sconto_medio',
-            color_continuous_scale='RdYlGn',
-            text=geo_df['valore'].apply(lambda x: f'€{x/1e9:.1f}B')
-        )
-        fig_regioni.update_layout(height=500, yaxis={'categoryorder': 'total ascending'})
-        fig_regioni.update_traces(textposition='outside')
-        render_chart_with_save(fig_regioni, "Classifica Regioni per Valore", "Bar chart regioni italiane ordinate per valore aggiudicazioni", "geo_regioni")
+        # Calcola dati regioni da filtered_df
+        if regione_col_geo and amount_col_geo and id_col_geo:
+            geo_df = filtered_df.groupby(regione_col_geo, observed=True).agg({
+                amount_col_geo: 'sum',
+                id_col_geo: 'count',
+                'sconto': 'mean'
+            }).reset_index()
+            geo_df.columns = ['Regione', 'valore', 'num_gare', 'sconto_medio']
+            geo_df = geo_df.dropna(subset=['Regione'])
+            geo_df = geo_df[geo_df['Regione'] != '']
+            geo_df = geo_df.sort_values('valore', ascending=False)
+
+            if len(geo_df) > 0:
+                fig_regioni = px.bar(
+                    geo_df,
+                    x='valore',
+                    y='Regione',
+                    orientation='h',
+                    color='sconto_medio',
+                    color_continuous_scale='RdYlGn',
+                    text=geo_df['valore'].apply(lambda x: f'€{x/1e9:.1f}B' if x >= 1e9 else f'€{x/1e6:.0f}M')
+                )
+                fig_regioni.update_layout(height=500, yaxis={'categoryorder': 'total ascending'})
+                fig_regioni.update_traces(textposition='outside')
+                render_chart_with_save(fig_regioni, "Classifica Regioni per Valore", "Bar chart regioni italiane ordinate per valore aggiudicazioni", "geo_regioni")
+            else:
+                st.info("Nessuna regione disponibile per i filtri selezionati")
+        else:
+            st.info("Colonna regione non disponibile")
 
     # Dettaglio regioni
     st.subheader("📋 Dettaglio per Regione")
-    geo_detail = pd.DataFrame(data['geo'])
-    geo_detail['valore_mld'] = geo_detail['valore'] / 1e9
-    geo_detail = geo_detail.rename(columns={
-        'Regione': 'Regione',
-        'num_gare': 'N. Gare',
-        'valore_mld': 'Valore (€B)',
-        'sconto_medio': 'Sconto Medio %'
-    })
-    st.dataframe(geo_detail[['Regione', 'N. Gare', 'Valore (€B)', 'Sconto Medio %']], width="stretch")
+    if regione_col_geo and amount_col_geo and id_col_geo:
+        geo_detail = filtered_df.groupby(regione_col_geo, observed=True).agg({
+            amount_col_geo: 'sum',
+            id_col_geo: 'count',
+            'sconto': 'mean'
+        }).reset_index()
+        geo_detail.columns = ['Regione', 'valore', 'N. Gare', 'Sconto Medio %']
+        geo_detail['Valore (€B)'] = geo_detail['valore'] / 1e9
+        geo_detail = geo_detail.dropna(subset=['Regione'])
+        geo_detail = geo_detail[geo_detail['Regione'] != '']
+        geo_detail = geo_detail.sort_values('valore', ascending=False)
+        st.dataframe(geo_detail[['Regione', 'N. Gare', 'Valore (€B)', 'Sconto Medio %']], use_container_width=True)
+    else:
+        st.info("Dati geografici non disponibili")
 
 # ==================== TAB 2: CATEGORIE ====================
 if tab2:
   with tab2:
+    # Identifica colonne dinamicamente
+    cat_col_tab2 = next((c for c in filtered_df.columns if c.lower() in ['categoria', '_categoria', 'category']), None)
+    amount_col_tab2 = next((c for c in filtered_df.columns if c.lower() in ['importo_aggiudicazione', 'award_amount']), None)
+    id_col_tab2 = next((c for c in filtered_df.columns if c.lower() in ['chiave', 'cig', 'ocid']), None)
+    offerte_col = next((c for c in filtered_df.columns if c.lower() in ['offerte_ricevute', 'num_offerte']), None)
+
+    # Calcola dati categorie da filtered_df
+    if cat_col_tab2 and amount_col_tab2 and id_col_tab2:
+        agg_dict = {amount_col_tab2: 'sum', id_col_tab2: 'count', 'sconto': 'mean'}
+        if offerte_col:
+            agg_dict[offerte_col] = 'mean'
+        cat_df = filtered_df.groupby(cat_col_tab2, observed=True).agg(agg_dict).reset_index()
+        col_names = ['Categoria_Main', 'valore', 'num_gare', 'sconto_medio']
+        if offerte_col:
+            col_names.append('partecipanti_medi')
+        cat_df.columns = col_names[:len(cat_df.columns)]
+        cat_df = cat_df.dropna(subset=['Categoria_Main'])
+        cat_df = cat_df[cat_df['Categoria_Main'] != '']
+        cat_df = cat_df.sort_values('valore', ascending=False)
+        if 'partecipanti_medi' not in cat_df.columns:
+            cat_df['partecipanti_medi'] = 1
+    else:
+        # Fallback ai dati pre-calcolati se colonne non trovate
+        cat_df = pd.DataFrame(data.get('categories', []))
+
     col1, col2 = st.columns(2)
 
     with col1:
         st.subheader("📦 Distribuzione per Categoria")
-        cat_df = pd.DataFrame(data['categories'])
-        fig_tree = px.treemap(
-            cat_df,
-            path=['Categoria_Main'],
-            values='valore',
-            color='sconto_medio',
-            color_continuous_scale='RdYlGn',
-            hover_data={'num_gare': True, 'sconto_medio': ':.1f'}
-        )
-        fig_tree.update_layout(height=450)
-        render_chart_with_save(fig_tree, "Treemap Categorie", "Distribuzione categorie merceologiche per valore", "treemap_categorie")
+        if len(cat_df) > 0:
+            fig_tree = px.treemap(
+                cat_df,
+                path=['Categoria_Main'],
+                values='valore',
+                color='sconto_medio',
+                color_continuous_scale='RdYlGn',
+                hover_data={'num_gare': True, 'sconto_medio': ':.1f'}
+            )
+            fig_tree.update_layout(height=450)
+            render_chart_with_save(fig_tree, "Treemap Categorie", "Distribuzione categorie merceologiche per valore", "treemap_categorie")
+        else:
+            st.info("Nessuna categoria disponibile per i filtri selezionati")
 
     with col2:
         st.subheader("📊 Categorie per Numero Gare vs Valore")
-        fig = px.scatter(
-            cat_df,
-            x='num_gare',
-            y='valore',
-            size='partecipanti_medi',
-            color='sconto_medio',
-            text='Categoria_Main',
-            color_continuous_scale='RdYlGn',
-            labels={'num_gare': 'Numero Gare', 'valore': 'Valore (€)', 'sconto_medio': 'Sconto %'}
-        )
-        fig.update_traces(textposition='top center', textfont_size=9)
-        fig.update_layout(height=450)
-        render_chart_with_save(fig, "Scatter Categorie", "Categorie per numero gare vs valore", "scatter_categorie")
+        if len(cat_df) > 0:
+            fig = px.scatter(
+                cat_df,
+                x='num_gare',
+                y='valore',
+                size='partecipanti_medi',
+                color='sconto_medio',
+                text='Categoria_Main',
+                color_continuous_scale='RdYlGn',
+                labels={'num_gare': 'Numero Gare', 'valore': 'Valore (€)', 'sconto_medio': 'Sconto %'}
+            )
+            fig.update_traces(textposition='top center', textfont_size=9)
+            fig.update_layout(height=450)
+            render_chart_with_save(fig, "Scatter Categorie", "Categorie per numero gare vs valore", "scatter_categorie")
+        else:
+            st.info("Nessuna categoria disponibile")
 
     # Radar chart categorie
     st.subheader("🎯 Confronto Categorie (Radar)")
-    cat_normalized = cat_df.copy()
-    for col in ['num_gare', 'valore', 'sconto_medio', 'partecipanti_medi']:
-        if col in cat_normalized.columns:
-            cat_normalized[col] = (cat_normalized[col] - cat_normalized[col].min()) / (cat_normalized[col].max() - cat_normalized[col].min())
+    if len(cat_df) > 0:
+        cat_normalized = cat_df.copy()
+        for col in ['num_gare', 'valore', 'sconto_medio', 'partecipanti_medi']:
+            if col in cat_normalized.columns:
+                col_range = cat_normalized[col].max() - cat_normalized[col].min()
+                if col_range > 0:
+                    cat_normalized[col] = (cat_normalized[col] - cat_normalized[col].min()) / col_range
+                else:
+                    cat_normalized[col] = 0.5
 
-    fig_radar = go.Figure()
-    for _, row in cat_normalized.head(5).iterrows():
-        fig_radar.add_trace(go.Scatterpolar(
-            r=[row['num_gare'], row['valore'], row['sconto_medio'], row.get('partecipanti_medi', 0)],
-            theta=['N. Gare', 'Valore', 'Sconto', 'Partecipanti'],
-            fill='toself',
-            name=row['Categoria_Main'][:20]
-        ))
-    fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 1])), height=400)
-    render_chart_with_save(fig_radar, "Radar Categorie", "Confronto categorie su 4 dimensioni", "radar_categorie")
+        fig_radar = go.Figure()
+        for _, row in cat_normalized.head(5).iterrows():
+            fig_radar.add_trace(go.Scatterpolar(
+                r=[row['num_gare'], row['valore'], row['sconto_medio'], row.get('partecipanti_medi', 0)],
+                theta=['N. Gare', 'Valore', 'Sconto', 'Partecipanti'],
+                fill='toself',
+                name=str(row['Categoria_Main'])[:20]
+            ))
+        fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 1])), height=400)
+        render_chart_with_save(fig_radar, "Radar Categorie", "Confronto categorie su 4 dimensioni", "radar_categorie")
+    else:
+        st.info("Dati insufficienti per il radar chart")
 
 # ==================== TAB 3: TREND ====================
 if tab3:
@@ -1040,29 +1136,45 @@ if tab3:
 
     with col1:
         st.subheader("📈 Trend Sconti e Partecipanti (Doppio Asse)")
-        trends_df = pd.DataFrame(data['discount_trends'])
-        trends_df = trends_df[trends_df['anno'].between(2015, 2024)]
+        # Calcola trend da filtered_df
+        offerte_col_trend = next((c for c in filtered_df.columns if c.lower() in ['offerte_ricevute', 'num_offerte']), None)
 
-        fig = make_subplots(specs=[[{"secondary_y": True}]])
-        fig.add_trace(
-            go.Scatter(x=trends_df['anno'], y=trends_df['media'], name='Sconto Medio %',
-                       line=dict(color=CGL_GREEN, width=3), fill='tozeroy', fillcolor='rgba(0,208,132,0.15)'),
-            secondary_y=False
-        )
-        fig.add_trace(
-            go.Scatter(x=trends_df['anno'], y=trends_df['partecipanti_medi'], name='Partecipanti Medi',
-                       line=dict(color=CGL_BLUE, width=3, dash='dash')),
-            secondary_y=True
-        )
-        fig.add_trace(
-            go.Scatter(x=trends_df['anno'], y=trends_df['mediana'], name='Mediana Sconto',
-                       line=dict(color=CGL_CYAN, width=2, dash='dot')),
-            secondary_y=False
-        )
-        fig.update_yaxes(title_text="Sconto %", secondary_y=False)
-        fig.update_yaxes(title_text="N. Partecipanti", secondary_y=True)
-        fig.update_layout(height=400, legend=dict(orientation="h", yanchor="bottom", y=1.02))
-        render_chart_with_save(fig, "Trend Sconti e Partecipanti", "Andamento storico sconto medio e partecipanti", "trend_sconti")
+        if 'anno' in filtered_df.columns and 'sconto' in filtered_df.columns:
+            agg_dict_trend = {'sconto': ['mean', 'median']}
+            if offerte_col_trend:
+                agg_dict_trend[offerte_col_trend] = 'mean'
+
+            trends_df = filtered_df[filtered_df['anno'].between(2015, 2025)].groupby('anno', observed=True).agg(agg_dict_trend).reset_index()
+            trends_df.columns = ['anno', 'media', 'mediana'] + (['partecipanti_medi'] if offerte_col_trend else [])
+
+            if 'partecipanti_medi' not in trends_df.columns:
+                trends_df['partecipanti_medi'] = 0
+
+            if len(trends_df) > 0:
+                fig = make_subplots(specs=[[{"secondary_y": True}]])
+                fig.add_trace(
+                    go.Scatter(x=trends_df['anno'], y=trends_df['media'], name='Sconto Medio %',
+                               line=dict(color=CGL_GREEN, width=3), fill='tozeroy', fillcolor='rgba(0,208,132,0.15)'),
+                    secondary_y=False
+                )
+                fig.add_trace(
+                    go.Scatter(x=trends_df['anno'], y=trends_df['partecipanti_medi'], name='Partecipanti Medi',
+                               line=dict(color=CGL_BLUE, width=3, dash='dash')),
+                    secondary_y=True
+                )
+                fig.add_trace(
+                    go.Scatter(x=trends_df['anno'], y=trends_df['mediana'], name='Mediana Sconto',
+                               line=dict(color=CGL_CYAN, width=2, dash='dot')),
+                    secondary_y=False
+                )
+                fig.update_yaxes(title_text="Sconto %", secondary_y=False)
+                fig.update_yaxes(title_text="N. Partecipanti", secondary_y=True)
+                fig.update_layout(height=400, legend=dict(orientation="h", yanchor="bottom", y=1.02))
+                render_chart_with_save(fig, "Trend Sconti e Partecipanti", "Andamento storico sconto medio e partecipanti", "trend_sconti")
+            else:
+                st.info("Dati insufficienti per il trend")
+        else:
+            st.info("Colonne anno/sconto non disponibili")
 
     with col2:
         st.subheader("📊 Volume Gare per Anno (OCDS + Gazzetta)")
@@ -1156,33 +1268,48 @@ if tab3:
             fig.update_layout(height=400)
             st.plotly_chart(fig, width="stretch")
 
-    # Trend per categoria
+    # Trend per categoria - calcola da filtered_df
     st.subheader("📊 Trend Sconti per Categoria")
-    trends_cat_df = pd.DataFrame(data['discount_trends_by_category'])
-    trends_cat_df = trends_cat_df[trends_cat_df['anno'].between(2015, 2024)]
+    cat_col_trend = next((c for c in filtered_df.columns if c.lower() in ['categoria', '_categoria', 'category']), None)
 
-    fig_trend_cat = px.line(
-        trends_cat_df,
-        x='anno',
-        y='media',
-        color='categoria',
-        markers=True,
-        labels={'anno': 'Anno', 'media': 'Sconto Medio %', 'categoria': 'Categoria'}
-    )
-    fig_trend_cat.update_layout(height=400, legend=dict(orientation="h", yanchor="bottom", y=-0.4))
-    render_chart_with_save(fig_trend_cat, "Trend per Categoria", "Evoluzione sconti per categoria merceologica", "trend_categorie")
+    if cat_col_trend and 'anno' in filtered_df.columns and 'sconto' in filtered_df.columns:
+        trends_cat_df = filtered_df[filtered_df['anno'].between(2015, 2025)].groupby(
+            ['anno', cat_col_trend], observed=True
+        ).agg({'sconto': 'mean'}).reset_index()
+        trends_cat_df.columns = ['anno', 'categoria', 'media']
+        trends_cat_df = trends_cat_df.dropna()
 
-    # Heatmap Anno x Categoria
-    st.subheader("🔥 Heatmap Sconto: Anno × Categoria")
-    pivot = trends_cat_df.pivot(index='categoria', columns='anno', values='media')
-    fig_heatmap = px.imshow(
-        pivot,
-        color_continuous_scale='RdYlGn',
-        labels={'color': 'Sconto %'},
-        aspect='auto'
-    )
-    fig_heatmap.update_layout(height=400)
-    render_chart_with_save(fig_heatmap, "Heatmap Anno x Categoria", "Mappa termica sconti per anno e categoria", "heatmap_categorie")
+        # Prendi solo top 10 categorie per valore per leggibilità
+        top_cats = filtered_df.groupby(cat_col_trend, observed=True).size().nlargest(10).index.tolist()
+        trends_cat_df = trends_cat_df[trends_cat_df['categoria'].isin(top_cats)]
+
+        if len(trends_cat_df) > 0:
+            fig_trend_cat = px.line(
+                trends_cat_df,
+                x='anno',
+                y='media',
+                color='categoria',
+                markers=True,
+                labels={'anno': 'Anno', 'media': 'Sconto Medio %', 'categoria': 'Categoria'}
+            )
+            fig_trend_cat.update_layout(height=400, legend=dict(orientation="h", yanchor="bottom", y=-0.4))
+            render_chart_with_save(fig_trend_cat, "Trend per Categoria", "Evoluzione sconti per categoria merceologica", "trend_categorie")
+
+            # Heatmap Anno x Categoria
+            st.subheader("🔥 Heatmap Sconto: Anno × Categoria")
+            pivot = trends_cat_df.pivot(index='categoria', columns='anno', values='media')
+            fig_heatmap = px.imshow(
+                pivot,
+                color_continuous_scale='RdYlGn',
+                labels={'color': 'Sconto %'},
+                aspect='auto'
+            )
+            fig_heatmap.update_layout(height=400)
+            render_chart_with_save(fig_heatmap, "Heatmap Anno x Categoria", "Mappa termica sconti per anno e categoria", "heatmap_categorie")
+        else:
+            st.info("Dati insufficienti per trend per categoria")
+    else:
+        st.info("Colonne necessarie non disponibili")
 
 # ==================== TAB 4: AGGIUDICATARI ====================
 if tab4:
