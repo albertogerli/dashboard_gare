@@ -1063,6 +1063,9 @@ if tab2:
         cat_df = cat_df.sort_values('valore', ascending=False)
         if 'partecipanti_medi' not in cat_df.columns:
             cat_df['partecipanti_medi'] = 1
+        else:
+            # Assicura valori positivi per size in scatter plot
+            cat_df['partecipanti_medi'] = cat_df['partecipanti_medi'].fillna(1).clip(lower=0.1)
     else:
         # Fallback ai dati pre-calcolati se colonne non trovate
         cat_df = pd.DataFrame(data.get('categories', []))
@@ -1088,8 +1091,13 @@ if tab2:
     with col2:
         st.subheader("📊 Categorie per Numero Gare vs Valore")
         if len(cat_df) > 0:
+            # Prepara dati per scatter: rimuovi NaN e valori non validi
+            scatter_df = cat_df.copy()
+            scatter_df['sconto_medio'] = scatter_df['sconto_medio'].fillna(0)
+            scatter_df['partecipanti_medi'] = scatter_df['partecipanti_medi'].fillna(1).clip(lower=0.1)
+            scatter_df = scatter_df[scatter_df['num_gare'] > 0]
             fig = px.scatter(
-                cat_df,
+                scatter_df,
                 x='num_gare',
                 y='valore',
                 size='partecipanti_medi',
