@@ -1061,7 +1061,117 @@ if tab1:
         else:
             st.info("Colonna regione non disponibile")
 
+    # === MAPPA COROPLETICA ITALIA ===
+    st.markdown("---")
+    st.subheader("🗺️ Mappa Coropletica Italia")
+    st.markdown("*Intensità colorata per valore gare o numero gare per regione*")
+
+    if regione_col_geo and amount_col_geo and id_col_geo:
+        # Prepara dati per choropleth
+        choropleth_df = filtered_df.groupby(regione_col_geo, observed=True).agg({
+            amount_col_geo: 'sum',
+            id_col_geo: 'count',
+            'sconto': 'mean'
+        }).reset_index()
+        choropleth_df.columns = ['regione', 'valore', 'num_gare', 'sconto_medio']
+        choropleth_df = choropleth_df.dropna(subset=['regione'])
+        choropleth_df = choropleth_df[choropleth_df['regione'] != '']
+
+        if len(choropleth_df) > 0:
+            # Opzioni visualizzazione
+            col_opt1, col_opt2 = st.columns(2)
+            with col_opt1:
+                choropleth_metric = st.radio(
+                    "Colora per:",
+                    ["💰 Valore Totale", "📊 Numero Gare", "📉 Sconto Medio"],
+                    horizontal=True,
+                    key="choropleth_metric"
+                )
+
+            # Determina metrica e scala colori
+            if "Valore" in choropleth_metric:
+                color_col = 'valore'
+                color_label = 'Valore (€)'
+                choropleth_df['display_value'] = choropleth_df['valore'].apply(lambda x: f"€{x/1e9:.2f}B" if x >= 1e9 else f"€{x/1e6:.0f}M")
+                color_scale = 'Blues'
+            elif "Numero" in choropleth_metric:
+                color_col = 'num_gare'
+                color_label = 'N. Gare'
+                choropleth_df['display_value'] = choropleth_df['num_gare'].apply(lambda x: f"{x:,}".replace(",", "."))
+                color_scale = 'Greens'
+            else:
+                color_col = 'sconto_medio'
+                color_label = 'Sconto %'
+                choropleth_df['display_value'] = choropleth_df['sconto_medio'].apply(lambda x: f"{x:.1f}%")
+                color_scale = 'RdYlGn'
+
+            # Coordinate centri regioni italiane
+            regioni_coords = {
+                'Piemonte': (45.0522, 7.5153), 'Valle d\'Aosta': (45.7370, 7.3204), "Valle d'Aosta": (45.7370, 7.3204),
+                'Lombardia': (45.4791, 9.8452), 'Trentino-Alto Adige': (46.4993, 11.3567),
+                'Veneto': (45.4347, 11.8754), 'Friuli-Venezia Giulia': (45.6495, 13.7768),
+                'Liguria': (44.4471, 8.7464), 'Emilia-Romagna': (44.5075, 11.3514),
+                'Toscana': (43.4587, 11.1196), 'Umbria': (42.9317, 12.5711), 'Marche': (43.3017, 13.4533),
+                'Lazio': (41.9813, 12.6893), 'Abruzzo': (42.2012, 13.5201), 'Molise': (41.6748, 14.4185),
+                'Campania': (40.8405, 14.3340), 'Puglia': (41.0125, 16.5042), 'Basilicata': (40.4927, 15.9714),
+                'Calabria': (38.9052, 16.5942), 'Sicilia': (37.5994, 14.0154), 'Sardegna': (40.1209, 9.0129)
+            }
+
+            # Aggiungi coordinate
+            choropleth_df['lat'] = choropleth_df['regione'].map(lambda x: regioni_coords.get(x, (42.0, 12.5))[0])
+            choropleth_df['lon'] = choropleth_df['regione'].map(lambda x: regioni_coords.get(x, (42.0, 12.5))[1])
+
+            # Crea mappa con bolle proporzionali
+            fig_choro = px.scatter_map(
+                choropleth_df,
+                lat='lat',
+                lon='lon',
+                size=color_col,
+                color=color_col,
+                hover_name='regione',
+                hover_data={
+                    'valore': ':,.0f',
+                    'num_gare': ':,',
+                    'sconto_medio': ':.1f',
+                    'lat': False,
+                    'lon': False
+                },
+                color_continuous_scale=color_scale,
+                size_max=60,
+                zoom=4.8,
+                center={'lat': 42.0, 'lon': 12.0},
+                opacity=0.7
+            )
+
+            fig_choro.update_layout(
+                height=550,
+                margin={"r":0, "t":30, "l":0, "b":0},
+                coloraxis_colorbar=dict(title=color_label),
+                title=f"Distribuzione per {color_label}"
+            )
+
+            st.plotly_chart(fig_choro, use_container_width=True)
+
+            # Legenda/statistiche
+            col_leg1, col_leg2, col_leg3, col_leg4 = st.columns(4)
+            with col_leg1:
+                top_region = choropleth_df.loc[choropleth_df[color_col].idxmax(), 'regione']
+                st.metric("🥇 Top Regione", top_region)
+            with col_leg2:
+                st.metric("📈 Max", choropleth_df['display_value'].iloc[choropleth_df[color_col].argmax()])
+            with col_leg3:
+                st.metric("📉 Min", choropleth_df['display_value'].iloc[choropleth_df[color_col].argmin()])
+            with col_leg4:
+                coverage = len(choropleth_df)
+                st.metric("🗺️ Regioni", f"{coverage}/20")
+
+        else:
+            st.info("Dati regionali non sufficienti per la mappa")
+    else:
+        st.info("Colonne geografiche non disponibili")
+
     # Dettaglio regioni con selezione interattiva
+    st.markdown("---")
     st.subheader("📋 Dettaglio per Regione")
     if regione_col_geo and amount_col_geo and id_col_geo:
         geo_detail = filtered_df.groupby(regione_col_geo, observed=True).agg({
@@ -4149,6 +4259,190 @@ if tab14:
                     st.info("Dati sconto insufficienti per l'analisi")
             else:
                 st.info("Colonna sconto non disponibile o vuota")
+
+        # === NETWORK GRAPH INTERATTIVO ===
+        st.markdown("---")
+        st.markdown("### 🕸️ Network Graph Interattivo")
+        st.markdown("*Visualizzazione grafo relazioni Enti-Fornitori*")
+
+        # Opzioni del grafo
+        col_net_opt1, col_net_opt2, col_net_opt3 = st.columns(3)
+        with col_net_opt1:
+            n_top_nodes = st.slider("Top nodi da visualizzare", 10, 50, 20, key="network_nodes")
+        with col_net_opt2:
+            min_gare_edge = st.slider("Min gare per connessione", 1, 10, 2, key="network_min_gare")
+        with col_net_opt3:
+            layout_type = st.selectbox("Layout grafo", ["Circolare", "Forza", "Random"], key="network_layout")
+
+        # Prepara dati per il network
+        top_enti = filtered_df.groupby(buyer_col_net, observed=True)[amount_col_net].sum().sort_values(ascending=False).head(n_top_nodes).index.tolist()
+        top_fornitori = filtered_df.groupby(supplier_col_net, observed=True)[amount_col_net].sum().sort_values(ascending=False).head(n_top_nodes).index.tolist()
+
+        # Filtra solo relazioni tra top nodi
+        network_df = filtered_df[
+            (filtered_df[buyer_col_net].isin(top_enti)) &
+            (filtered_df[supplier_col_net].isin(top_fornitori))
+        ].copy()
+
+        # Aggrega per coppia
+        edges_df = network_df.groupby([buyer_col_net, supplier_col_net], observed=True).agg({
+            id_col_net: 'count',
+            amount_col_net: 'sum'
+        }).reset_index()
+        edges_df.columns = ['ente', 'fornitore', 'n_gare', 'valore']
+        edges_df = edges_df[edges_df['n_gare'] >= min_gare_edge]
+
+        if len(edges_df) > 0:
+            import math
+
+            # Raccogli tutti i nodi unici
+            all_nodes = list(set(edges_df['ente'].tolist() + edges_df['fornitore'].tolist()))
+            n_nodes = len(all_nodes)
+
+            # Assegna posizioni ai nodi
+            node_positions = {}
+            if layout_type == "Circolare":
+                for i, node in enumerate(all_nodes):
+                    angle = 2 * math.pi * i / n_nodes
+                    node_positions[node] = (math.cos(angle), math.sin(angle))
+            elif layout_type == "Random":
+                import random
+                random.seed(42)
+                for node in all_nodes:
+                    node_positions[node] = (random.uniform(-1, 1), random.uniform(-1, 1))
+            else:  # Forza - bipartito
+                enti_in_graph = [n for n in all_nodes if n in top_enti]
+                fornitori_in_graph = [n for n in all_nodes if n in top_fornitori and n not in enti_in_graph]
+
+                for i, node in enumerate(enti_in_graph):
+                    y_pos = (i / max(1, len(enti_in_graph) - 1)) * 2 - 1 if len(enti_in_graph) > 1 else 0
+                    node_positions[node] = (-0.8, y_pos)
+
+                for i, node in enumerate(fornitori_in_graph):
+                    y_pos = (i / max(1, len(fornitori_in_graph) - 1)) * 2 - 1 if len(fornitori_in_graph) > 1 else 0
+                    node_positions[node] = (0.8, y_pos)
+
+            # Crea traces per edges
+            edge_x = []
+            edge_y = []
+
+            for _, row in edges_df.iterrows():
+                if row['ente'] in node_positions and row['fornitore'] in node_positions:
+                    x0, y0 = node_positions[row['ente']]
+                    x1, y1 = node_positions[row['fornitore']]
+                    edge_x.extend([x0, x1, None])
+                    edge_y.extend([y0, y1, None])
+
+            edge_trace = go.Scatter(
+                x=edge_x, y=edge_y,
+                line=dict(width=1, color='rgba(150,150,150,0.5)'),
+                hoverinfo='none',
+                mode='lines'
+            )
+
+            # Crea traces per nodi
+            node_x = []
+            node_y = []
+            node_text = []
+            node_color = []
+            node_size = []
+
+            # Calcola metriche per dimensione nodi
+            node_values = {}
+            for node in all_nodes:
+                if node in top_enti:
+                    node_values[node] = network_df[network_df[buyer_col_net] == node][amount_col_net].sum()
+                else:
+                    node_values[node] = network_df[network_df[supplier_col_net] == node][amount_col_net].sum()
+
+            max_val = max(node_values.values()) if node_values else 1
+
+            for node in all_nodes:
+                if node in node_positions:
+                    x, y = node_positions[node]
+                    node_x.append(x)
+                    node_y.append(y)
+
+                    short_name = node[:25] + "..." if len(node) > 25 else node
+                    val = node_values.get(node, 0)
+                    val_display = f"€{val/1e6:.1f}M" if val >= 1e6 else f"€{val/1e3:.0f}K"
+                    node_text.append(f"{short_name}<br>{val_display}")
+
+                    if node in top_enti:
+                        node_color.append(CGL_BLUE)
+                    else:
+                        node_color.append(CGL_GREEN)
+
+                    size = 15 + (node_values.get(node, 0) / max_val) * 35
+                    node_size.append(size)
+
+            node_trace = go.Scatter(
+                x=node_x, y=node_y,
+                mode='markers+text',
+                hoverinfo='text',
+                text=node_text,
+                textposition="bottom center",
+                textfont=dict(size=8),
+                marker=dict(
+                    showscale=False,
+                    color=node_color,
+                    size=node_size,
+                    line=dict(width=2, color='white')
+                )
+            )
+
+            fig_network = go.Figure(data=[edge_trace, node_trace])
+
+            fig_network.update_layout(
+                title=f"Network Enti-Fornitori ({len(all_nodes)} nodi, {len(edges_df)} connessioni)",
+                titlefont_size=14,
+                showlegend=False,
+                hovermode='closest',
+                margin=dict(b=20, l=5, r=5, t=40),
+                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                height=600,
+                plot_bgcolor='rgba(248,249,250,1)'
+            )
+
+            fig_network.add_annotation(
+                x=0.02, y=0.98, xref="paper", yref="paper",
+                text="🔵 Enti Appaltanti",
+                showarrow=False, font=dict(size=10),
+                bgcolor="white", borderpad=4
+            )
+            fig_network.add_annotation(
+                x=0.02, y=0.93, xref="paper", yref="paper",
+                text="🟢 Fornitori",
+                showarrow=False, font=dict(size=10),
+                bgcolor="white", borderpad=4
+            )
+
+            st.plotly_chart(fig_network, use_container_width=True)
+
+            # Statistiche network
+            col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
+            with col_stat1:
+                st.metric("🔵 Enti nel grafo", len([n for n in all_nodes if n in top_enti]))
+            with col_stat2:
+                st.metric("🟢 Fornitori nel grafo", len([n for n in all_nodes if n not in top_enti]))
+            with col_stat3:
+                st.metric("🔗 Connessioni", len(edges_df))
+            with col_stat4:
+                avg_connections = edges_df['n_gare'].mean()
+                st.metric("📊 Media gare/conn.", f"{avg_connections:.1f}")
+
+            # Top connessioni
+            st.markdown("#### 🔝 Top 10 Connessioni più Forti")
+            top_edges = edges_df.nlargest(10, 'n_gare').copy()
+            top_edges['ente'] = top_edges['ente'].str[:35]
+            top_edges['fornitore'] = top_edges['fornitore'].str[:30]
+            top_edges['valore'] = top_edges['valore'].apply(lambda x: f"€{x/1e6:.1f}M")
+            top_edges.columns = ['Ente', 'Fornitore', 'N. Gare', 'Valore Totale']
+            st.dataframe(top_edges, use_container_width=True, hide_index=True)
+
+        else:
+            st.info("Dati insufficienti per il network graph. Prova a ridurre il minimo gare per connessione.")
 
 # ==================== TAB 15: AI CHARTS ====================
 if tab15:
