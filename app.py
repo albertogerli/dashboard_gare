@@ -433,7 +433,7 @@ def render_chart_with_save(fig, chart_title: str, chart_description: str, chart_
     """Render a Plotly chart with save to favorites button"""
     col_chart, col_btn = st.columns([20, 1])
     with col_chart:
-        st.plotly_chart(fig, width="stretch", key=f"chart_{chart_key}")
+        st.plotly_chart(fig, use_container_width=True, key=f"chart_{chart_key}")
     with col_btn:
         # Check if already in favorites
         favorites = load_favorites()
@@ -1493,7 +1493,7 @@ if tab3:
                 )
                 fig.update_traces(textposition='outside')
                 fig.update_layout(height=400, xaxis={'categoryorder': 'array', 'categoryarray': volume_df['anno'].tolist()})
-                st.plotly_chart(fig, width="stretch")
+                st.plotly_chart(fig, use_container_width=True)
 
                 # Mostra breakdown per fonte
                 if 'fonte' in filtered_df.columns:
@@ -1520,7 +1520,7 @@ if tab3:
                 labels={'count': 'Numero Gare', 'anno': 'Anno', 'media': 'Sconto %'}
             )
             fig.update_layout(height=400)
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, use_container_width=True)
 
     # Trend per categoria - calcola da filtered_df
     st.subheader("📊 Trend Sconti per Categoria")
@@ -1671,7 +1671,7 @@ if tab5:
             labels={'value': 'Valore', 'variable': 'Metrica'}
         )
         fig.update_layout(height=350)
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, use_container_width=True)
 
     # SIE Edizioni
     if data['consip'].get('sie_edizioni'):
@@ -1686,7 +1686,7 @@ if tab5:
             labels={'valore': 'Valore (€)', 'num_gare': 'N. Gare'}
         )
         fig.update_layout(height=300)
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, use_container_width=True)
 
     # CONSIP per regione
     if data['consip'].get('per_regione'):
@@ -1701,7 +1701,7 @@ if tab5:
             color_continuous_scale='Blues'
         )
         fig.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, use_container_width=True)
 
 # ==================== TAB 6: STATISTICHE AVANZATE ====================
 if tab6:
@@ -1729,7 +1729,7 @@ if tab6:
             fig.add_vline(x=sconto_median, line_dash="dash", line_color="green",
                           annotation_text=f"Mediana: {sconto_median:.1f}%", annotation_position="bottom right")
             fig.update_layout(height=350)
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, use_container_width=True)
             st.caption(f"ℹ️ Analisi basata su {len(valid_sconti):,} gare con sconto > 0%")
         else:
             st.info("Nessun dato di sconto valido disponibile")
@@ -1744,7 +1744,7 @@ if tab6:
             labels={'x': 'Log10(Valore €)'}
         )
         fig.update_layout(height=350)
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, use_container_width=True)
 
     with col3:
         st.markdown("### 👥 Distribuzione Offerte Ricevute")
@@ -1760,7 +1760,7 @@ if tab6:
                     labels={partecipanti_col: 'N. Offerte'}
                 )
                 fig.update_layout(height=350)
-                st.plotly_chart(fig, width="stretch", key="dist_offerte")
+                st.plotly_chart(fig, use_container_width=True, key="dist_offerte")
             else:
                 st.info("Dati offerte insufficienti")
         else:
@@ -1780,7 +1780,7 @@ if tab6:
             labels={cat_col: 'Categoria', 'sconto': 'Sconto %'}
         )
         fig.update_layout(height=400, showlegend=False, xaxis_tickangle=-45)
-        st.plotly_chart(fig, width="stretch", key="box_sconti_cat")
+        st.plotly_chart(fig, use_container_width=True, key="box_sconti_cat")
     else:
         st.info("Dati insufficienti per box plot")
 
@@ -1801,7 +1801,7 @@ if tab6:
             labels={'award_amount': 'Valore (€)', 'sconto': 'Sconto %'}
         )
         fig.update_layout(height=400)
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, use_container_width=True)
 
     with col2:
         st.subheader("📅 Distribuzione Mensile")
@@ -1823,7 +1823,7 @@ if tab6:
                         labels={'periodo': 'Periodo', 'award_amount': 'Valore (€)'}
                     )
                     fig.update_layout(height=400)
-                    st.plotly_chart(fig, width="stretch", key="dist_mensile_stat")
+                    st.plotly_chart(fig, use_container_width=True, key="dist_mensile_stat")
                 else:
                     st.info("Nessun dato mensile disponibile")
             else:
@@ -1865,12 +1865,12 @@ if tab6:
     }
 
     stats_df = pd.DataFrame(stats)
-    st.dataframe(stats_df, width="stretch", hide_index=True)
+    st.dataframe(stats_df, use_container_width=True, hide_index=True)
 
-# ==================== TAB 7: RICERCA CITTÀ ====================
+# ==================== TAB 7: RICERCA CITTÀ / STAZIONE APPALTANTE ====================
 if tab7:
   with tab7:
-    st.subheader("🔍 Ricerca Servizi Attivi per Città")
+    st.subheader("🔍 Ricerca Servizi per Città o Stazione Appaltante")
 
     # Helper per trovare colonne dinamicamente (definito anche qui per sicurezza)
     def get_col_city(df, candidates):
@@ -1888,40 +1888,88 @@ if tab7:
     cat_col_city = get_col_city(filtered_df, ['_categoria', 'categoria', 'category'])
     id_col_city = get_col_city(filtered_df, ['chiave', 'cig', 'ocid', 'CIG'])
 
-    # Get unique cities from filtered data
+    # Get unique cities and stazioni appaltanti from filtered data
     if locality_col and locality_col in filtered_df.columns:
         cities_list = sorted(filtered_df[locality_col].dropna().unique().tolist())
     else:
         cities_list = []
-        st.warning("Colonna città non trovata nel dataset filtrato")
+
+    if buyer_col_city and buyer_col_city in filtered_df.columns:
+        stazioni_list = sorted(filtered_df[buyer_col_city].dropna().unique().tolist())
+    else:
+        stazioni_list = []
 
     st.info(f"💡 I risultati rispettano i filtri selezionati nella sidebar ({len(filtered_df):,} gare filtrate)".replace(",", "."))
+
+    # Tipo di ricerca
+    tipo_ricerca = st.radio(
+        "Cerca per:",
+        ["🏙️ Città", "🏛️ Stazione Appaltante"],
+        horizontal=True,
+        key="tipo_ricerca_territoriale"
+    )
 
     # Search box
     col1, col2 = st.columns([2, 1])
     with col1:
-        citta_search = st.selectbox(
-            "Seleziona o cerca una città",
-            options=[""] + cities_list,
-            index=0,
-            help="Digita per cercare"
-        )
+        if tipo_ricerca == "🏙️ Città":
+            if cities_list:
+                citta_search = st.selectbox(
+                    "Seleziona o cerca una città",
+                    options=[""] + cities_list,
+                    index=0,
+                    help="Digita per cercare tra le città"
+                )
+                stazione_search = None
+            else:
+                st.warning("Colonna città non trovata nel dataset")
+                citta_search = None
+                stazione_search = None
+        else:
+            if stazioni_list:
+                stazione_search = st.selectbox(
+                    "Seleziona o cerca una stazione appaltante",
+                    options=[""] + stazioni_list,
+                    index=0,
+                    help="Digita per cercare tra le stazioni appaltanti"
+                )
+                citta_search = None
+            else:
+                st.warning("Colonna stazione appaltante non trovata nel dataset")
+                citta_search = None
+                stazione_search = None
     with col2:
         solo_attivi = st.checkbox("Solo contratti attivi (2023-2025)", value=True)
 
-    if citta_search and locality_col:
+    # Determina quale ricerca è attiva
+    search_active = False
+    search_label = ""
+    city_df = pd.DataFrame()
+
+    if tipo_ricerca == "🏙️ Città" and citta_search and locality_col:
         # Filter data for selected city from already filtered data
         city_df = filtered_df[filtered_df[locality_col].str.upper() == citta_search.upper()].copy()
+        search_label = citta_search.upper()
+        search_icon = "📍"
+        search_active = True
 
+    elif tipo_ricerca == "🏛️ Stazione Appaltante" and stazione_search and buyer_col_city:
+        # Filter data for selected stazione appaltante
+        city_df = filtered_df[filtered_df[buyer_col_city] == stazione_search].copy()
+        search_label = stazione_search
+        search_icon = "🏛️"
+        search_active = True
+
+    if search_active and len(city_df) > 0:
         if solo_attivi and 'anno' in city_df.columns:
             city_df = city_df[city_df['anno'] >= 2023]
 
         if len(city_df) > 0:
-            st.markdown(f"### 📍 {citta_search.upper()}")
+            st.markdown(f"### {search_icon} {search_label}")
 
-            # City KPIs - usa colonne dinamiche
+            # KPIs - usa colonne dinamiche
             col1, col2, col3, col4 = st.columns(4)
-            col1.metric("🏛️ Totale Gare", f"{len(city_df):,}".replace(",", "."))
+            col1.metric("📋 Totale Gare", f"{len(city_df):,}".replace(",", "."))
 
             if amount_col_city:
                 valore_tot = pd.to_numeric(city_df[amount_col_city], errors='coerce').sum()
@@ -1935,10 +1983,13 @@ if tab7:
             else:
                 col3.metric("📉 Sconto Medio", "N/D")
 
-            if buyer_col_city:
+            # Per stazione appaltante mostra città, per città mostra enti
+            if tipo_ricerca == "🏛️ Stazione Appaltante" and locality_col:
+                col4.metric("🏙️ Città", f"{city_df[locality_col].nunique()}")
+            elif buyer_col_city:
                 col4.metric("🏢 Enti Appaltanti", f"{city_df[buyer_col_city].nunique()}")
             else:
-                col4.metric("🏢 Enti Appaltanti", "N/D")
+                col4.metric("🏢 Enti", "N/D")
 
             # Services by category
             st.markdown("---")
@@ -1977,7 +2028,7 @@ if tab7:
                             hole=0.3
                         )
                         fig.update_layout(height=350)
-                        st.plotly_chart(fig, width="stretch")
+                        st.plotly_chart(fig, use_container_width=True)
 
                     with col2:
                         if 'Valore (€)' in cat_city.columns:
@@ -1991,13 +2042,14 @@ if tab7:
                                 title='Valore per Categoria'
                             )
                             fig.update_layout(height=350, yaxis={'categoryorder': 'total ascending'})
-                            st.plotly_chart(fig, width="stretch")
+                            st.plotly_chart(fig, use_container_width=True)
             else:
                 st.info("Dati categoria non disponibili per questo filtro")
 
-            # Top suppliers in city
+            # Top suppliers
             st.markdown("---")
-            st.markdown("#### 🏆 Top Fornitori nella Città")
+            fornitori_title = "Top Fornitori" if tipo_ricerca == "🏛️ Stazione Appaltante" else "Top Fornitori nella Città"
+            st.markdown(f"#### 🏆 {fornitori_title}")
 
             if supplier_col_city:
                 agg_dict_sup = {}
@@ -2032,54 +2084,55 @@ if tab7:
                         )
                         fig.update_layout(height=450, yaxis={'categoryorder': 'total ascending'})
                         fig.update_traces(textposition='outside')
-                        st.plotly_chart(fig, width="stretch")
+                        st.plotly_chart(fig, use_container_width=True)
                     else:
-                        st.dataframe(top_suppliers, width="stretch")
+                        st.dataframe(top_suppliers, use_container_width=True)
             else:
                 st.info("Dati fornitori non disponibili")
 
-            # Top buyers (stazioni appaltanti)
-            st.markdown("---")
-            st.markdown("#### 🏛️ Stazioni Appaltanti nella Città")
+            # Top buyers (stazioni appaltanti) - solo se ricerca per città
+            if tipo_ricerca == "🏙️ Città":
+                st.markdown("---")
+                st.markdown("#### 🏛️ Stazioni Appaltanti nella Città")
 
-            if buyer_col_city:
-                agg_dict_buy = {}
-                if id_col_city:
-                    agg_dict_buy[id_col_city] = 'count'
-                if amount_col_city:
-                    agg_dict_buy[amount_col_city] = 'sum'
-                if sconto_col_city:
-                    agg_dict_buy[sconto_col_city] = 'mean'
-
-                if agg_dict_buy:
-                    top_buyers = city_df.groupby(buyer_col_city, observed=True).agg(agg_dict_buy).reset_index()
-                    new_cols_buy = ['Stazione Appaltante']
+                if buyer_col_city:
+                    agg_dict_buy = {}
                     if id_col_city:
-                        new_cols_buy.append('N. Gare')
+                        agg_dict_buy[id_col_city] = 'count'
                     if amount_col_city:
-                        new_cols_buy.append('Valore (€)')
+                        agg_dict_buy[amount_col_city] = 'sum'
                     if sconto_col_city:
-                        new_cols_buy.append('Sconto Medio %')
-                    top_buyers.columns = new_cols_buy
-                    top_buyers = top_buyers.sort_values('Valore (€)' if 'Valore (€)' in top_buyers.columns else 'N. Gare', ascending=False).head(15)
+                        agg_dict_buy[sconto_col_city] = 'mean'
 
-                    if 'Valore (€)' in top_buyers.columns:
-                        fig = px.bar(
-                            top_buyers,
-                            x='Valore (€)',
-                            y='Stazione Appaltante',
-                            orientation='h',
-                            color='Sconto Medio %' if 'Sconto Medio %' in top_buyers.columns else None,
-                            color_continuous_scale='RdYlGn',
-                            text=top_buyers['Valore (€)'].apply(lambda x: f'€{x/1e6:.1f}M' if x > 1e6 else f'€{x/1e3:.0f}K')
-                        )
-                        fig.update_layout(height=450, yaxis={'categoryorder': 'total ascending'})
-                        fig.update_traces(textposition='outside')
-                        st.plotly_chart(fig, width="stretch")
-                    else:
-                        st.dataframe(top_buyers, width="stretch")
-            else:
-                st.info("Dati stazioni appaltanti non disponibili")
+                    if agg_dict_buy:
+                        top_buyers = city_df.groupby(buyer_col_city, observed=True).agg(agg_dict_buy).reset_index()
+                        new_cols_buy = ['Stazione Appaltante']
+                        if id_col_city:
+                            new_cols_buy.append('N. Gare')
+                        if amount_col_city:
+                            new_cols_buy.append('Valore (€)')
+                        if sconto_col_city:
+                            new_cols_buy.append('Sconto Medio %')
+                        top_buyers.columns = new_cols_buy
+                        top_buyers = top_buyers.sort_values('Valore (€)' if 'Valore (€)' in top_buyers.columns else 'N. Gare', ascending=False).head(15)
+
+                        if 'Valore (€)' in top_buyers.columns:
+                            fig = px.bar(
+                                top_buyers,
+                                x='Valore (€)',
+                                y='Stazione Appaltante',
+                                orientation='h',
+                                color='Sconto Medio %' if 'Sconto Medio %' in top_buyers.columns else None,
+                                color_continuous_scale='RdYlGn',
+                                text=top_buyers['Valore (€)'].apply(lambda x: f'€{x/1e6:.1f}M' if x > 1e6 else f'€{x/1e3:.0f}K')
+                            )
+                            fig.update_layout(height=450, yaxis={'categoryorder': 'total ascending'})
+                            fig.update_traces(textposition='outside')
+                            st.plotly_chart(fig, use_container_width=True)
+                        else:
+                            st.dataframe(top_buyers, use_container_width=True)
+                else:
+                    st.info("Dati stazioni appaltanti non disponibili")
 
             # Detailed services table
             st.markdown("---")
@@ -2145,7 +2198,7 @@ if tab7:
                 start_idx = (page - 1) * page_size
                 end_idx = start_idx + page_size
 
-                st.dataframe(display_df.iloc[start_idx:end_idx], width="stretch", height=500)
+                st.dataframe(display_df.iloc[start_idx:end_idx], use_container_width=True, height=500)
                 st.caption(f"Mostrando {start_idx+1}-{min(end_idx, len(display_df))} di {len(display_df)} gare")
 
             # Export button
@@ -2195,7 +2248,7 @@ if tab7:
                         fig.update_yaxes(title_text="Valore (€)", secondary_y=False)
                         fig.update_yaxes(title_text="Numero Gare", secondary_y=True)
                         fig.update_layout(height=350, legend=dict(orientation="h", yanchor="bottom", y=1.02))
-                        st.plotly_chart(fig, width="stretch")
+                        st.plotly_chart(fig, use_container_width=True)
 
         else:
             st.warning(f"Nessuna gara trovata per {citta_search}")
@@ -2241,9 +2294,9 @@ if tab7:
                     )
                     fig.update_layout(height=600, yaxis={'categoryorder': 'total ascending'})
                     fig.update_traces(textposition='outside')
-                    st.plotly_chart(fig, width="stretch")
+                    st.plotly_chart(fig, use_container_width=True)
 
-                st.dataframe(city_summary, width="stretch")
+                st.dataframe(city_summary, use_container_width=True)
         else:
             st.info("Dati città non disponibili per i filtri selezionati")
 
@@ -2374,7 +2427,7 @@ if tab8:
                     title=f'Distribuzione CONSIP - {tipo_sel if tipo_sel != "Tutti" else "Tutti i tipi"}'
                 )
                 fig.update_layout(height=550, margin={"r":0,"t":30,"l":0,"b":0})
-                st.plotly_chart(fig, width="stretch")
+                st.plotly_chart(fig, use_container_width=True)
             else:
                 st.warning("Nessun dato CONSIP con coordinate disponibili per i filtri selezionati")
 
@@ -2386,13 +2439,13 @@ if tab8:
             }).reset_index()
             tipo_summary.columns = ['Tipo', 'N. Gare', 'Valore (€)']
             tipo_summary['Valore (€)'] = tipo_summary['Valore (€)'].apply(lambda x: f'€{x/1e6:.0f}M')
-            st.dataframe(safe_dataframe(tipo_summary), width="stretch", hide_index=True)
+            st.dataframe(safe_dataframe(tipo_summary), use_container_width=True, hide_index=True)
 
             st.markdown("#### 🏙️ Top 10 Città")
             top_cities = consip_by_city.nlargest(10, 'valore')[['citta', 'num_gare', 'valore']]
             top_cities['valore'] = top_cities['valore'].apply(lambda x: f'€{x/1e6:.0f}M')
             top_cities.columns = ['Città', 'Gare', 'Valore']
-            st.dataframe(safe_dataframe(top_cities), width="stretch", hide_index=True)
+            st.dataframe(safe_dataframe(top_cities), use_container_width=True, hide_index=True)
 
         # Timeline
         st.markdown("---")
@@ -2414,7 +2467,7 @@ if tab8:
             labels={'Valore': 'Valore (€)', 'Anno': 'Anno'}
         )
         fig.update_layout(height=350)
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, use_container_width=True)
 
         # Detailed table
         st.markdown("---")
@@ -2427,7 +2480,7 @@ if tab8:
         display_consip.columns = ['Data', 'Città', 'Regione', 'Tipo', 'Edizione', 'Oggetto', 'Valore', 'Sconto', 'Aggiudicatario']
         display_consip = display_consip.sort_values('Data', ascending=False)
 
-        st.dataframe(display_consip.head(100), width="stretch", height=400)
+        st.dataframe(display_consip.head(100), use_container_width=True, height=400)
 
         # Download
         st.download_button(
@@ -2570,7 +2623,7 @@ if tab9:
                     fig.update_yaxes(title_text="Numero Gare", secondary_y=True)
                     fig.update_xaxes(dtick=1, tickformat='d')  # Tick ogni anno, formato intero
                     fig.update_layout(height=350, legend=dict(orientation="h", yanchor="bottom", y=1.02))
-                    st.plotly_chart(fig, width="stretch")
+                    st.plotly_chart(fig, use_container_width=True)
 
             with col2:
                 st.markdown("#### 📦 Per Categoria")
@@ -2594,7 +2647,7 @@ if tab9:
                     )
                     fig.update_layout(height=350)
                     fig.update_traces(textposition='outside')
-                    st.plotly_chart(fig, width="stretch")
+                    st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("Dati categoria non disponibili")
 
@@ -2623,7 +2676,7 @@ if tab9:
                     )
                     fig.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
                     fig.update_traces(textposition='outside')
-                    st.plotly_chart(fig, width="stretch")
+                    st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("Dati geografici non disponibili")
 
@@ -2648,7 +2701,7 @@ if tab9:
                     )
                     fig.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
                     fig.update_traces(textposition='outside')
-                    st.plotly_chart(fig, width="stretch")
+                    st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("Dati enti non disponibili")
 
@@ -2674,7 +2727,7 @@ if tab9:
                             fig.add_vline(x=sconto_mean, line_dash="dash", line_color="red",
                                           annotation_text=f"Media: {sconto_mean:.1f}%")
                         fig.update_layout(height=300)
-                        st.plotly_chart(fig, width="stretch")
+                        st.plotly_chart(fig, use_container_width=True)
                         st.caption(f"ℹ️ Basato su {len(valid_sconto)} gare con sconto > 0%")
                     else:
                         st.info("Dati sconto non sufficienti (sconto > 0%)")
@@ -2695,7 +2748,7 @@ if tab9:
                             color_continuous_scale='RdYlGn'
                         )
                         fig.update_layout(height=300)
-                        st.plotly_chart(fig, width="stretch")
+                        st.plotly_chart(fig, use_container_width=True)
             else:
                 st.info("Dati sconto non disponibili")
 
@@ -2752,7 +2805,7 @@ if tab9:
                 start_idx = (page - 1) * page_size
                 end_idx = start_idx + page_size
 
-                st.dataframe(display_supplier.iloc[start_idx:end_idx], width="stretch", height=400)
+                st.dataframe(display_supplier.iloc[start_idx:end_idx], use_container_width=True, height=400)
                 st.caption(f"Mostrando {start_idx+1}-{min(end_idx, len(display_supplier))} di {len(display_supplier)} gare")
 
             # Export
@@ -2824,7 +2877,7 @@ if tab9:
                     display_top['Valore (€)'] = display_top['Valore (€)'].apply(lambda x: f'€{x/1e6:.0f}M')
                 if 'Sconto Medio %' in display_top.columns:
                     display_top['Sconto Medio %'] = display_top['Sconto Medio %'].apply(lambda x: f'{x:.1f}%' if pd.notna(x) else '-')
-                st.dataframe(display_top, width="stretch", height=400)
+                st.dataframe(display_top, use_container_width=True, height=400)
 
 # ==================== TAB 10: ANALISI MERCATO ====================
 if tab10:
@@ -2987,7 +3040,7 @@ if tab10:
                         line=dict(color='red', dash='dash')
                     ))
                     fig.update_layout(height=350)
-                    st.plotly_chart(fig, width="stretch")
+                    st.plotly_chart(fig, use_container_width=True)
                     corr = valid_with_sconto[[partecipanti_col, 'sconto']].corr().iloc[0, 1]
                     st.metric("📊 Correlazione Partecipanti-Sconto", f"{corr:.3f}",
                               help="Positivo = più partecipanti, più sconto")
@@ -3022,7 +3075,7 @@ if tab10:
                         )
                         fig.update_traces(textposition='outside')
                         fig.update_layout(height=350)
-                        st.plotly_chart(fig, width="stretch")
+                        st.plotly_chart(fig, use_container_width=True)
 
                         # KPIs
                         col_a, col_b = st.columns(2)
@@ -3075,7 +3128,7 @@ if tab10:
                 )
                 fig.update_traces(textposition='outside')
                 fig.update_layout(height=350)
-                st.plotly_chart(fig, width="stretch")
+                st.plotly_chart(fig, use_container_width=True)
             else:
                 st.info("Dati insufficienti per l'analisi per valore")
         else:
@@ -3120,7 +3173,7 @@ if tab10:
                 secondary_y=True
             )
             fig.update_layout(height=350, title='Gare e Sconti per Mese')
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Dati mensili insufficienti")
 
@@ -3146,7 +3199,7 @@ if tab10:
                         title='Volume gare per periodo'
                     )
                     fig.update_layout(height=350)
-                    st.plotly_chart(fig, width="stretch")
+                    st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("Dati heatmap insufficienti")
             else:
@@ -3184,7 +3237,7 @@ if tab10:
             fig.add_vline(x=5, line_dash="dash", line_color="red")
             fig.add_vline(x=80, line_dash="dash", line_color="red")
             fig.update_layout(height=250)
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Campo sconto non disponibile")
 
@@ -3214,7 +3267,7 @@ if tab10:
                     top_large = large_contracts.nlargest(5, amount_col_t10)[cols_to_show].copy()
                     top_large[amount_col_t10] = top_large[amount_col_t10].apply(lambda x: f'€{x/1e6:.0f}M')
                     top_large.columns = col_labels
-                    st.dataframe(top_large, width="stretch", hide_index=True)
+                    st.dataframe(top_large, use_container_width=True, hide_index=True)
         else:
             st.info("Campo importo non disponibile")
 
@@ -3238,7 +3291,7 @@ if tab10:
                             })
 
             if dominant:
-                st.dataframe(pd.DataFrame(dominant), width="stretch", hide_index=True)
+                st.dataframe(pd.DataFrame(dominant), use_container_width=True, hide_index=True)
             else:
                 st.info("Nessun fornitore con quota >30% in una categoria")
         else:
@@ -3308,7 +3361,7 @@ if tab10:
                     )
                     fig.update_traces(textposition='outside')
                     fig.update_layout(height=350, yaxis={'categoryorder': 'total ascending'})
-                    st.plotly_chart(fig, width="stretch", key="proc_sconto")
+                    st.plotly_chart(fig, use_container_width=True, key="proc_sconto")
                 else:
                     st.info("Dati insufficienti per l'analisi")
             else:
@@ -3363,7 +3416,7 @@ if tab10:
                 )
                 fig.update_traces(textposition='outside')
                 fig.update_layout(height=350, yaxis={'categoryorder': 'total ascending'})
-                st.plotly_chart(fig, width="stretch", key="region_sconto")
+                st.plotly_chart(fig, use_container_width=True, key="region_sconto")
             else:
                 st.info("Dati insufficienti per l'analisi regionale")
         else:
@@ -3485,7 +3538,7 @@ if tab11:
             fig.update_layout(height=400, title='Scadenze per Anno')
             fig.update_yaxes(title_text="N. Contratti", secondary_y=False)
             fig.update_yaxes(title_text="Valore (M€)", secondary_y=True)
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, use_container_width=True)
 
         with col2:
             st.subheader("🏢 Scadenze per Tipo Accordo")
@@ -3500,7 +3553,7 @@ if tab11:
                              title='Distribuzione per Tipo Accordo',
                              color_discrete_sequence=px.colors.qualitative.Set2)
                 fig.update_layout(height=400)
-                st.plotly_chart(fig, width="stretch")
+                st.plotly_chart(fig, use_container_width=True)
 
         # Timeline scadenze prossimi 3 anni
         st.markdown("---")
@@ -3520,7 +3573,7 @@ if tab11:
                          color='Valore', color_continuous_scale='Reds',
                          title='Contratti in Scadenza per Mese')
             fig.update_layout(height=350, xaxis_tickangle=-45)
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Nessun contratto in scadenza nei prossimi 3 anni")
 
@@ -3550,7 +3603,7 @@ if tab11:
                 display_df['Aggiudicatario'] = display_df['Aggiudicatario'].apply(lambda x: str(x)[:40] if pd.notna(x) else '-')
 
             display_df.columns = ['Scadenza', 'Tipo', 'Comune', 'Regione', 'Aggiudicatario', 'Valore', 'Durata (gg)']
-            st.dataframe(display_df.sort_values('Scadenza'), width="stretch", hide_index=True)
+            st.dataframe(display_df.sort_values('Scadenza'), use_container_width=True, hide_index=True)
 
             # Download
             csv = contratti_mostra.to_csv(index=False)
@@ -3635,7 +3688,7 @@ if tab11:
                          color='Valore (stima)', color_continuous_scale='Blues',
                          title='Stima Contratti in Scadenza')
             fig.update_layout(height=350)
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, use_container_width=True)
 
         with col2:
             st.markdown("#### Stima Scadenze per Categoria")
@@ -3651,7 +3704,7 @@ if tab11:
                          color_continuous_scale='Greens',
                          title='Top 10 Categorie per Scadenze Future')
             fig.update_layout(height=350)
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, use_container_width=True)
 
         # Alert scadenze imminenti
         st.markdown("---")
@@ -3777,7 +3830,7 @@ if tab12:
                 st.markdown(f"**🔵 Top Regioni {supplier_a[:25]}**")
                 fig = px.bar(reg_a, x='Valore', y='Regione', orientation='h', color_discrete_sequence=['#636EFA'])
                 fig.update_layout(height=300, yaxis={'categoryorder': 'total ascending'})
-                st.plotly_chart(fig, width="stretch", key="influence_a")
+                st.plotly_chart(fig, use_container_width=True, key="influence_a")
 
             with col2:
                 reg_b = df_b.groupby(region_col, observed=True)['award_amount'].sum().sort_values(ascending=False).head(10).reset_index()
@@ -3785,7 +3838,7 @@ if tab12:
                 st.markdown(f"**🔴 Top Regioni {supplier_b[:25]}**")
                 fig = px.bar(reg_b, x='Valore', y='Regione', orientation='h', color_discrete_sequence=['#EF553B'])
                 fig.update_layout(height=300, yaxis={'categoryorder': 'total ascending'})
-                st.plotly_chart(fig, width="stretch", key="influence_b")
+                st.plotly_chart(fig, use_container_width=True, key="influence_b")
 
             # Overlap analysis
             st.markdown("### 🔄 Sovrapposizione Territoriale")
@@ -3908,7 +3961,7 @@ if tab13:
                 fig.add_trace(go.Scatter(x=quarterly['trimestre_nome'], y=quarterly['n_gare'],
                                         name='N. Gare', line=dict(color=CGL_BLUE, width=3)), secondary_y=True)
                 fig.update_layout(height=300)
-                st.plotly_chart(fig, width="stretch", key="quarterly_analysis")
+                st.plotly_chart(fig, use_container_width=True, key="quarterly_analysis")
             else:
                 st.info("Nessun dato trimestrale")
 
@@ -3943,7 +3996,7 @@ if tab13:
                     name='Mediana'
                 ))
                 fig.update_layout(height=300, yaxis_title='Valore (€K)', xaxis_title='Trimestre')
-                st.plotly_chart(fig, width="stretch", key="quarterly_valore_medio")
+                st.plotly_chart(fig, use_container_width=True, key="quarterly_valore_medio")
             else:
                 st.info("Nessun dato valore medio per trimestre")
         else:
@@ -4001,7 +4054,7 @@ if tab13:
                      markers=True, labels={'anno': 'Anno', 'valore': 'Valore (€)'})
         fig.update_layout(height=450, legend=dict(orientation="h", yanchor="bottom", y=-0.4, font=dict(size=10)))
         fig.update_xaxes(dtick=1)
-        st.plotly_chart(fig, width="stretch", key="growth_lines")
+        st.plotly_chart(fig, use_container_width=True, key="growth_lines")
 
     # Growth rate bar charts - split by value and count
     st.markdown(f"### 📈 Crescita % ({anno_inizio} → {anno_fine})")
@@ -4034,7 +4087,7 @@ if tab13:
                         color='Crescita %', color_continuous_scale='RdYlGn', color_continuous_midpoint=0,
                         hover_data={f'Valore {anno_inizio}': ':,.0f', f'Valore {anno_fine}': ':,.0f'})
             fig.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
-            st.plotly_chart(fig, width="stretch", key="growth_value")
+            st.plotly_chart(fig, use_container_width=True, key="growth_value")
 
             # Summary stats
             avg_growth = growth_val_df['Crescita %'].mean()
@@ -4067,7 +4120,7 @@ if tab13:
                         color='Crescita %', color_continuous_scale='RdYlGn', color_continuous_midpoint=0,
                         hover_data={f'Gare {anno_inizio}': True, f'Gare {anno_fine}': True})
             fig.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
-            st.plotly_chart(fig, width="stretch", key="growth_count")
+            st.plotly_chart(fig, use_container_width=True, key="growth_count")
 
             # Summary stats
             avg_growth = growth_cnt_df['Crescita %'].mean()
@@ -4103,7 +4156,7 @@ if tab13:
             })
 
     if detail_data:
-        st.dataframe(pd.DataFrame(detail_data), width="stretch", hide_index=True)
+        st.dataframe(pd.DataFrame(detail_data), use_container_width=True, hide_index=True)
 
 # ==================== TAB 14: NETWORK ANALYSIS ====================
 if tab14:
@@ -4223,7 +4276,7 @@ if tab14:
                         outliers_display[amount_col_net] = outliers_display[amount_col_net].apply(lambda x: f'€{x/1e6:.2f}M' if pd.notna(x) else 'N/A')
                         outliers_display['z_score'] = outliers_display['z_score'].apply(lambda x: f'{x:.1f}')
                         outliers_display.columns = ['Fornitore', 'Ente', 'Importo', 'Z-Score']
-                        st.dataframe(outliers_display, width="stretch", height=300)
+                        st.dataframe(outliers_display, use_container_width=True, height=300)
                         st.warning(f"⚠️ Trovati {len(outliers)} outlier su {len(filtered_df)} gare ({len(outliers)/len(filtered_df)*100:.2f}%)")
                     else:
                         st.success("✅ Nessun outlier significativo rilevato")
@@ -4251,7 +4304,7 @@ if tab14:
                     fig.add_vline(x=lower_bound, line_dash="dash", line_color="red", annotation_text="Lower bound")
                     fig.add_vline(x=upper_bound, line_dash="dash", line_color="red", annotation_text="Upper bound")
                     fig.update_layout(height=300, xaxis_title='Sconto %', yaxis_title='Frequenza')
-                    st.plotly_chart(fig, width="stretch", key="sconto_anomalies")
+                    st.plotly_chart(fig, use_container_width=True, key="sconto_anomalies")
 
                     if len(anomalous_sconti) > 0:
                         st.info(f"📊 Sconti anomali: {len(anomalous_sconti)} gare fuori range [{lower_bound:.1f}%, {upper_bound:.1f}%]")
@@ -4483,7 +4536,7 @@ if tab15:
         with st.expander("📋 Colonne disponibili nel dataset", expanded=False):
             cols_info = filtered_df.dtypes.to_frame('tipo').reset_index()
             cols_info.columns = ['Colonna', 'Tipo']
-            st.dataframe(cols_info, width="stretch", hide_index=True)
+            st.dataframe(cols_info, use_container_width=True, hide_index=True)
 
         # Examples - UI migliorata con cards
         st.markdown("### 💡 Esempi di richieste")
@@ -4508,7 +4561,7 @@ if tab15:
                     <span style="font-size: 1.2em;">{icon}</span> <strong>{label}</strong>
                 </div>
                 """, unsafe_allow_html=True)
-                if st.button(f"Usa questo", key=f"example_{i}", width="stretch"):
+                if st.button(f"Usa questo", key=f"example_{i}", use_container_width=True):
                     st.session_state['ai_prompt'] = full_prompt
                     st.session_state.pop('ai_analysis', None)  # Reset analysis
                     st.rerun()
@@ -4526,9 +4579,9 @@ if tab15:
         # Step 1: Analyze
         col_btn1, col_btn2, col_space = st.columns([1, 1, 3])
         with col_btn1:
-            analyze_btn = st.button("🔍 1. Analizza", type="secondary", width="stretch")
+            analyze_btn = st.button("🔍 1. Analizza", type="secondary", use_container_width=True)
         with col_btn2:
-            generate_btn = st.button("🚀 2. Genera", type="primary", width="stretch", disabled=('ai_analysis' not in st.session_state))
+            generate_btn = st.button("🚀 2. Genera", type="primary", use_container_width=True, disabled=('ai_analysis' not in st.session_state))
 
         # Get dataframe info for context
         df_info = f"""
@@ -4636,7 +4689,7 @@ Esempio valori:
                         key="ai_modification"
                     )
                 with col_btn:
-                    modify_btn = st.button("🔄 Modifica", key="modify_analysis_btn", width="stretch")
+                    modify_btn = st.button("🔄 Modifica", key="modify_analysis_btn", use_container_width=True)
 
                 if modify_btn and modification:
                     with st.spinner("🔄 Modifico l'analisi..."):
@@ -4680,7 +4733,7 @@ Rispondi con il JSON aggiornato (stesso formato) applicando le modifiche richies
                     fig, error = execute_chart_code(code, filtered_df)
 
                     if fig:
-                        st.plotly_chart(fig, width="stretch", key="ai_generated_chart")
+                        st.plotly_chart(fig, use_container_width=True, key="ai_generated_chart")
 
                         # Save to favorites button
                         col1, col2, col3 = st.columns([1, 1, 3])
@@ -4755,14 +4808,14 @@ if tab16:
                         if fav.get('type') == 'ai_generated' and fav.get('code'):
                             fig, error = execute_chart_code(fav['code'], filtered_df)
                             if fig:
-                                st.plotly_chart(fig, width="stretch", key=f"fav_chart_{fav.get('id', i)}")
+                                st.plotly_chart(fig, use_container_width=True, key=f"fav_chart_{fav.get('id', i)}")
                             else:
                                 st.warning(f"Errore: {error}")
                         elif fav.get('type') == 'standard' and fav.get('fig_json'):
                             try:
                                 import plotly.io as pio
                                 fig = pio.from_json(fav['fig_json'])
-                                st.plotly_chart(fig, width="stretch", key=f"fav_chart_{fav.get('id', i)}")
+                                st.plotly_chart(fig, use_container_width=True, key=f"fav_chart_{fav.get('id', i)}")
                             except Exception as e:
                                 st.warning(f"Errore nel caricare il grafico: {e}")
 
@@ -4798,14 +4851,14 @@ if tab16:
                     if fav.get('type') == 'ai_generated' and fav.get('code'):
                         fig, error = execute_chart_code(fav['code'], filtered_df)
                         if fig:
-                            st.plotly_chart(fig, width="stretch", key=f"fav_list_{fav.get('id', i)}")
+                            st.plotly_chart(fig, use_container_width=True, key=f"fav_list_{fav.get('id', i)}")
                         else:
                             st.warning(f"Errore: {error}")
                     elif fav.get('type') == 'standard' and fav.get('fig_json'):
                         try:
                             import plotly.io as pio
                             fig = pio.from_json(fav['fig_json'])
-                            st.plotly_chart(fig, width="stretch", key=f"fav_list_{fav.get('id', i)}")
+                            st.plotly_chart(fig, use_container_width=True, key=f"fav_list_{fav.get('id', i)}")
                         except Exception as e:
                             st.warning(f"Errore nel caricare il grafico: {e}")
 
@@ -4849,7 +4902,7 @@ if tab17:
         with st.chat_message(msg['role']):
             st.markdown(msg['content'])
             if msg.get('chart'):
-                st.plotly_chart(msg['chart'], width="stretch")
+                st.plotly_chart(msg['chart'], use_container_width=True)
 
     # STEP 1: Se c'è una ricerca pendente, mostra opzioni di selezione
     if st.session_state.get('pending_search'):
@@ -5030,7 +5083,7 @@ TOP 5 CATEGORIE: {filtered_df.groupby(category_col, observed=True)[amount_col].s
     ]
     for i, q in enumerate(quick_questions):
         with quick_cols[i]:
-            if st.button(q, key=f"quick_{i}", width="stretch"):
+            if st.button(q, key=f"quick_{i}", use_container_width=True):
                 st.session_state['chat_history'].append({'role': 'user', 'content': q})
                 st.rerun()
 
@@ -5111,7 +5164,7 @@ if tab18:
                 step=50
             )
 
-            predict_btn = st.button("🔮 Calcola Predizioni", type="primary", width="stretch")
+            predict_btn = st.button("🔮 Calcola Predizioni", type="primary", use_container_width=True)
 
         with col2:
             if predict_btn and selected_cat != 'N/A':
@@ -5189,7 +5242,7 @@ if tab18:
                             color_continuous_scale='Greens'
                         )
                         fig.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
-                        st.plotly_chart(fig, width="stretch")
+                        st.plotly_chart(fig, use_container_width=True)
                     else:
                         st.warning("Dati insufficienti per questa categoria/regione")
 
@@ -5248,7 +5301,7 @@ if tab18:
                 names='Categoria',
                 title=f'Categorie principali - {selected_supplier[:30]}'
             )
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, use_container_width=True)
 
     else:
         st.warning("Dati insufficienti per l'analisi ML. Verifica che il dataset contenga le colonne necessarie.")
@@ -5322,12 +5375,12 @@ if tab19:
                 color_continuous_scale='YlOrRd'
             )
             fig.update_layout(height=600)
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, use_container_width=True)
 
             # Stats table
             st.dataframe(
                 safe_dataframe(region_data[['Regione', 'N_Gare', 'Valore_B']].rename(columns={'Valore_B': 'Valore (€B)'}).sort_values('Valore (€B)', ascending=False)),
-                width="stretch",
+                use_container_width=True,
                 hide_index=True
             )
         else:
@@ -5360,9 +5413,9 @@ if tab19:
                     labels={'Valore_M': 'Valore (€M)', 'N_Gare': 'N. Gare'}
                 )
                 fig.update_layout(height=600, yaxis={'categoryorder': 'total ascending'})
-                st.plotly_chart(fig, width="stretch")
+                st.plotly_chart(fig, use_container_width=True)
 
-                st.dataframe(city_filtered.head(30), width="stretch", hide_index=True)
+                st.dataframe(city_filtered.head(30), use_container_width=True, hide_index=True)
             else:
                 st.info(f"Nessuna città con >= {min_gare} gare")
         else:
@@ -5404,7 +5457,7 @@ if tab19:
                                 color_continuous_scale='Blues'
                             )
                             fig.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
-                            st.plotly_chart(fig, width="stretch")
+                            st.plotly_chart(fig, use_container_width=True)
 
                     with col2:
                         # Top suppliers in region
@@ -5426,7 +5479,7 @@ if tab19:
                                 color_continuous_scale='Greens'
                             )
                             fig.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
-                            st.plotly_chart(fig, width="stretch")
+                            st.plotly_chart(fig, use_container_width=True)
 
                     # Trend temporale regione
                     if 'anno' in region_df.columns and amount_col:
@@ -5448,7 +5501,7 @@ if tab19:
                                 secondary_y=True
                             )
                             fig.update_layout(title=f'Trend Temporale - {selected_region}', height=350)
-                            st.plotly_chart(fig, width="stretch")
+                            st.plotly_chart(fig, use_container_width=True)
             else:
                 st.warning("Nessuna regione disponibile nei dati filtrati")
         else:
@@ -5490,7 +5543,7 @@ if tab19:
                     size_max=50
                 )
                 fig.update_layout(height=600)
-                st.plotly_chart(fig, width="stretch")
+                st.plotly_chart(fig, use_container_width=True)
 
                 # Summary stats
                 year_totals = anim_data.groupby('Anno', observed=True)['Valore'].sum() / 1e9
@@ -5501,7 +5554,7 @@ if tab19:
                     labels={'x': 'Anno', 'y': 'Valore (€B)'}
                 )
                 fig2.update_layout(height=300)
-                st.plotly_chart(fig2, width="stretch")
+                st.plotly_chart(fig2, use_container_width=True)
             else:
                 st.warning("Nessun dato nel range 2018-2025")
         else:
