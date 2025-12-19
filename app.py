@@ -1928,18 +1928,18 @@ if tab7:
                 stazione_search = None
         else:
             if stazioni_list:
-                stazione_search = st.selectbox(
-                    "Seleziona o cerca una stazione appaltante",
-                    options=[""] + stazioni_list,
-                    index=0,
-                    help="Digita per cercare tra le stazioni appaltanti",
+                stazione_search = st.multiselect(
+                    "Seleziona una o più stazioni appaltanti",
+                    options=stazioni_list,
+                    default=[],
+                    help="Puoi selezionare più stazioni appaltanti per aggregare i dati",
                     key="search_stazione_territoriale"
                 )
                 citta_search = None
             else:
                 st.warning("Colonna stazione appaltante non trovata nel dataset")
                 citta_search = None
-                stazione_search = None
+                stazione_search = []
     with col2:
         solo_attivi = st.checkbox("Solo contratti attivi (2023-2025)", value=True)
 
@@ -1955,10 +1955,13 @@ if tab7:
         search_icon = "📍"
         search_active = True
 
-    elif tipo_ricerca == "🏛️ Stazione Appaltante" and stazione_search and buyer_col_city:
-        # Filter data for selected stazione appaltante
-        city_df = filtered_df[filtered_df[buyer_col_city] == stazione_search].copy()
-        search_label = stazione_search
+    elif tipo_ricerca == "🏛️ Stazione Appaltante" and stazione_search and len(stazione_search) > 0 and buyer_col_city:
+        # Filter data for selected stazioni appaltanti (multiple selection)
+        city_df = filtered_df[filtered_df[buyer_col_city].isin(stazione_search)].copy()
+        if len(stazione_search) == 1:
+            search_label = stazione_search[0]
+        else:
+            search_label = f"{len(stazione_search)} Stazioni Appaltanti"
         search_icon = "🏛️"
         search_active = True
 
