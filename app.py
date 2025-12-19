@@ -1918,7 +1918,8 @@ if tab7:
                     "Seleziona o cerca una città",
                     options=[""] + cities_list,
                     index=0,
-                    help="Digita per cercare tra le città"
+                    help="Digita per cercare tra le città",
+                    key="search_citta_territoriale"
                 )
                 stazione_search = None
             else:
@@ -1931,7 +1932,8 @@ if tab7:
                     "Seleziona o cerca una stazione appaltante",
                     options=[""] + stazioni_list,
                     index=0,
-                    help="Digita per cercare tra le stazioni appaltanti"
+                    help="Digita per cercare tra le stazioni appaltanti",
+                    key="search_stazione_territoriale"
                 )
                 citta_search = None
             else:
