@@ -4453,7 +4453,7 @@ if tab14:
 
             fig_network.update_layout(
                 title=f"Network Enti-Fornitori ({len(all_nodes)} nodi, {len(edges_df)} connessioni)",
-                titlefont_size=14,
+                title_font_size=14,
                 showlegend=False,
                 hovermode='closest',
                 margin=dict(b=20, l=5, r=5, t=40),
