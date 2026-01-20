@@ -1604,7 +1604,11 @@ if 'tab20' in locals() and tab20:
     st.subheader("🔎 Ricerca Gare per parola chiave")
     st.caption("La ricerca applica anche i filtri della sidebar (fonte/anno/regione/…)")
 
-    # Sorgenti e colonne ricercabili proposte
+    # Colonne utili per filtri numerici
+    sconto_col_search = 'sconto' if 'sconto' in filtered_df.columns else None
+    partecipanti_col_search = next((c for c in ['offerte_ricevute', 'parties_count', 'num_partecipanti', 'num_offerte'] if c in filtered_df.columns), None)
+
+    # Sorgenti e colonne ricercabili proposte (solo testuali)
     default_search_cols = [
         'oggetto', 'tender_title', 'tender_description', 'categoria', 'categoria_originale', 'quick_category',
         'aggiudicatario', 'supplier_name', 'ente_appaltante', 'buyer_name', 'comune', 'regione',
@@ -1626,6 +1630,17 @@ if 'tab20' in locals() and tab20:
         case_sensitive = st.checkbox("Maiuscole/minuscole", value=False)
     with col_opt3:
         limit_preview = st.number_input("Righe anteprima", min_value=50, max_value=2000, value=200, step=50)
+
+    # Filtri numerici opzionali
+    col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+    with col_f1:
+        sconto_min = st.number_input("Sconto min %", min_value=0.0, max_value=100.0, value=0.0, step=1.0) if sconto_col_search else None
+    with col_f2:
+        sconto_max = st.number_input("Sconto max %", min_value=0.0, max_value=100.0, value=100.0, step=1.0) if sconto_col_search else None
+    with col_f3:
+        part_min = st.number_input("Partecipanti min", min_value=0, max_value=100, value=0, step=1) if partecipanti_col_search else None
+    with col_f4:
+        part_max = st.number_input("Partecipanti max", min_value=0, max_value=100, value=100, step=1) if partecipanti_col_search else None
 
     do_search = st.button("Cerca", type="primary")
 
@@ -1667,6 +1682,14 @@ if 'tab20' in locals() and tab20:
                 else:
                     results = df_src.head(0).copy()
 
+                # Filtri numerici: sconto (%) e partecipanti
+                if sconto_col_search and len(results) > 0:
+                    s = pd.to_numeric(results[sconto_col_search], errors='coerce')
+                    results = results[(s >= sconto_min) & (s <= sconto_max)]
+                if partecipanti_col_search and len(results) > 0:
+                    p = pd.to_numeric(results[partecipanti_col_search], errors='coerce')
+                    results = results[(p >= (part_min if part_min is not None else -1)) & (p <= (part_max if part_max is not None else 1e9))]
+
                 st.success(f"Trovate {len(results):,} gare".replace(",", "."))
 
                 # Colonne per anteprima
@@ -1675,6 +1698,9 @@ if 'tab20' in locals() and tab20:
                     'aggiudicatario', 'supplier_name', 'importo_aggiudicazione', 'award_amount', 'sconto', 'categoria',
                     'procedura', 'regione', 'comune', 'fonte'
                 ]
+                # aggiungi partecipanti se esiste
+                if partecipanti_col_search:
+                    preview_cols.append(partecipanti_col_search)
                 preview_cols = [c for c in preview_cols if c in results.columns]
                 preview = results[preview_cols].copy()
 
@@ -1689,6 +1715,8 @@ if 'tab20' in locals() and tab20:
                     preview['award_amount'] = pd.to_numeric(preview['award_amount'], errors='coerce').apply(lambda x: f"€{x/1e6:.1f}M" if pd.notna(x) and x>=1e6 else (f"€{x/1e3:.0f}K" if pd.notna(x) else ''))
                 if 'sconto' in preview.columns:
                     preview['sconto'] = pd.to_numeric(preview['sconto'], errors='coerce').apply(lambda x: f"{x:.1f}%" if pd.notna(x) else '')
+                if partecipanti_col_search and partecipanti_col_search in preview.columns:
+                    preview[partecipanti_col_search] = pd.to_numeric(preview[partecipanti_col_search], errors='coerce').astype('Int64')
 
                 st.dataframe(preview.head(int(limit_preview)), width="stretch", height=500)
 
