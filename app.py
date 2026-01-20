@@ -14,6 +14,7 @@ from rapidfuzz import fuzz, process
 import os
 import requests
 import hashlib
+import re
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -984,7 +985,7 @@ st.caption(f"*{cluster_info.get(selected_cluster, '')}*")
 
 # Tab definitions per cluster
 if selected_cluster == "📊 Panoramica":
-    tab1, tab2, tab3, tab6 = st.tabs(["🗺️ Geografia", "📦 Categorie", "📈 Trend", "📊 Statistiche"])
+    tab1, tab2, tab3, tab6, tab20 = st.tabs(["🗺️ Geografia", "📦 Categorie", "📈 Trend", "📊 Statistiche", "🔎 Ricerca"])
     tab4 = tab5 = tab7 = tab8 = tab9 = tab10 = tab11 = tab12 = tab13 = tab14 = tab15 = tab16 = tab17 = tab18 = tab19 = None
 elif selected_cluster == "🏆 Operatori":
     tab4, tab9, tab12, tab14 = st.tabs(["🏆 Aggiudicatari", "🔎 Aggiudicatario", "⚔️ Confronto", "🌐 Network"])
@@ -1596,6 +1597,125 @@ if tab3:
             st.info("Dati insufficienti per trend per categoria")
     else:
         st.info("Colonne necessarie non disponibili")
+
+# ==================== TAB 20: RICERCA GARE ====================
+if 'tab20' in locals() and tab20:
+  with tab20:
+    st.subheader("🔎 Ricerca Gare per parola chiave")
+    st.caption("La ricerca applica anche i filtri della sidebar (fonte/anno/regione/…)")
+
+    # Sorgenti e colonne ricercabili proposte
+    default_search_cols = [
+        'oggetto', 'tender_title', 'tender_description', 'categoria', 'categoria_originale', 'quick_category',
+        'aggiudicatario', 'supplier_name', 'ente_appaltante', 'buyer_name', 'comune', 'regione',
+        'cpv_description', 'cpv_code'
+    ]
+    available_cols = [c for c in default_search_cols if c in filtered_df.columns]
+    cols_sel = st.multiselect("Cerca nei campi", options=available_cols, default=available_cols)
+
+    col_q1, col_q2 = st.columns([2,1])
+    with col_q1:
+        query = st.text_input("Parola chiave o più termini (separa con ;)", key="kw_query", placeholder="es. illuminazione; videosorveglianza")
+    with col_q2:
+        combine_terms = st.radio("Combinazione termini", ["OR", "AND"], horizontal=True, key="kw_op")
+
+    col_opt1, col_opt2, col_opt3 = st.columns(3)
+    with col_opt1:
+        use_regex = st.checkbox("Usa regex", value=False, help="Se disattivo, i caratteri speciali verranno escapati")
+    with col_opt2:
+        case_sensitive = st.checkbox("Maiuscole/minuscole", value=False)
+    with col_opt3:
+        limit_preview = st.number_input("Righe anteprima", min_value=50, max_value=2000, value=200, step=50)
+
+    do_search = st.button("Cerca", type="primary")
+
+    if do_search:
+        df_src = filtered_df
+        if not cols_sel:
+            st.warning("Seleziona almeno un campo da cercare")
+        else:
+            # Prepara termini
+            terms = []
+            if query:
+                parts = [p.strip() for p in query.split(';') if p.strip()]
+                terms.extend(parts)
+            if not terms:
+                st.info("Inserisci almeno un termine di ricerca")
+            else:
+                flags = 0 if case_sensitive else re.IGNORECASE
+                # Costruisci maschera per colonna e combina tra colonne con OR
+                col_masks = []
+                for col in cols_sel:
+                    s = df_src[col].astype(str)
+                    if combine_terms == "OR":
+                        mask_col = s.str.contains(re.escape(terms[0]) if not use_regex else terms[0], regex=True, na=False, flags=flags)
+                        for t in terms[1:]:
+                            patt = re.escape(t) if not use_regex else t
+                            mask_col = mask_col | s.str.contains(patt, regex=True, na=False, flags=flags)
+                    else:
+                        mask_col = s.str.contains(re.escape(terms[0]) if not use_regex else terms[0], regex=True, na=False, flags=flags)
+                        for t in terms[1:]:
+                            patt = re.escape(t) if not use_regex else t
+                            mask_col = mask_col & s.str.contains(patt, regex=True, na=False, flags=flags)
+                    col_masks.append(mask_col)
+
+                if col_masks:
+                    mask = col_masks[0]
+                    for m in col_masks[1:]:
+                        mask = mask | m  # OR tra colonne
+                    results = df_src[mask].copy()
+                else:
+                    results = df_src.head(0).copy()
+
+                st.success(f"Trovate {len(results):,} gare".replace(",", "."))
+
+                # Colonne per anteprima
+                preview_cols = [
+                    'data_aggiudicazione', 'award_date', 'oggetto', 'tender_title', 'ente_appaltante', 'buyer_name',
+                    'aggiudicatario', 'supplier_name', 'importo_aggiudicazione', 'award_amount', 'sconto', 'categoria',
+                    'procedura', 'regione', 'comune', 'fonte'
+                ]
+                preview_cols = [c for c in preview_cols if c in results.columns]
+                preview = results[preview_cols].copy()
+
+                # Formattazioni base
+                if 'data_aggiudicazione' in preview.columns:
+                    preview['data_aggiudicazione'] = pd.to_datetime(preview['data_aggiudicazione'], errors='coerce').dt.strftime('%Y-%m-%d')
+                if 'award_date' in preview.columns:
+                    preview['award_date'] = pd.to_datetime(preview['award_date'], errors='coerce').dt.strftime('%Y-%m-%d')
+                if 'importo_aggiudicazione' in preview.columns:
+                    preview['importo_aggiudicazione'] = pd.to_numeric(preview['importo_aggiudicazione'], errors='coerce').apply(lambda x: f"€{x/1e6:.1f}M" if pd.notna(x) and x>=1e6 else (f"€{x/1e3:.0f}K" if pd.notna(x) else ''))
+                if 'award_amount' in preview.columns:
+                    preview['award_amount'] = pd.to_numeric(preview['award_amount'], errors='coerce').apply(lambda x: f"€{x/1e6:.1f}M" if pd.notna(x) and x>=1e6 else (f"€{x/1e3:.0f}K" if pd.notna(x) else ''))
+                if 'sconto' in preview.columns:
+                    preview['sconto'] = pd.to_numeric(preview['sconto'], errors='coerce').apply(lambda x: f"{x:.1f}%" if pd.notna(x) else '')
+
+                st.dataframe(preview.head(int(limit_preview)), width="stretch", height=500)
+
+                # Download completi
+                st.markdown("---")
+                col_dl1, col_dl2 = st.columns(2)
+                csv_bytes = results.to_csv(index=False).encode('utf-8')
+                with col_dl1:
+                    st.download_button(
+                        label=f"📥 Scarica CSV (tutte le {len(results):,} righe)".replace(",", "."),
+                        data=csv_bytes,
+                        file_name=f"gare_search_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv"
+                    )
+                with col_dl2:
+                    try:
+                        from io import BytesIO
+                        buf = BytesIO()
+                        results.to_excel(buf, index=False, engine='openpyxl')
+                        st.download_button(
+                            label=f"📥 Scarica Excel (tutte le {len(results):,} righe)".replace(",", "."),
+                            data=buf.getvalue(),
+                            file_name=f"gare_search_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+                    except ImportError:
+                        pass
 
 # ==================== TAB 4: AGGIUDICATARI ====================
 if tab4:
