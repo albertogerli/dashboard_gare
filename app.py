@@ -419,7 +419,7 @@ def get_current_filters():
         'regione_sel': ('Regione', None),
         'categoria_sel': ('Categoria', None),
         'procedura_sel': ('Procedura', None),
-        'tipo_appalto_sel': ('Tipo Appalto', None),
+        'tipo_appalto_sel': ('Tipologia Contratto', None),
         'sottocategoria_sel': ('Sottocategoria', None),
     }
     for key, (label, default) in filter_map.items():
@@ -663,6 +663,30 @@ if 'procedura' in raw_df.columns:
 
     raw_df['procedura'] = raw_df['procedura'].apply(normalize_procedura)
 
+# Normalizza tipo appalto in classi standard e scarta stringhe che sembrano procedure
+if 'tipo_appalto' in raw_df.columns:
+    def normalize_tipo_appalto(x):
+        if pd.isna(x):
+            return np.nan
+        s = str(x).strip()
+        if s == '' or s.lower() == 'nan':
+            return np.nan
+        s_low = s.lower()
+        # se contiene termini di procedura, non è una tipologia contrattuale valida
+        if any(k in s_low for k in ['procedura', 'affidamento', 'negoziat', 'ristrett', 'apert', 'adesione']):
+            return np.nan
+        if 'lavor' in s_low:
+            return 'Lavori'
+        if 'fornitur' in s_low or 'fornit' in s_low:
+            return 'Forniture'
+        if 'concession' in s_low:
+            return 'Concessioni'
+        if any(k in s_low for k in ['serviz', 'manutenz', 'gestione', 'nolo', 'supporto']):
+            return 'Servizi'
+        return 'Altro'
+
+    raw_df['tipo_appalto_norm'] = raw_df['tipo_appalto'].apply(normalize_tipo_appalto).astype('category')
+
 # Sidebar filters
 st.sidebar.title("🔍 Filtri")
 
@@ -718,11 +742,16 @@ else:
     regioni = [None] + [r['Regione'] for r in data['geo']]
 regione_sel = st.sidebar.selectbox("🗺️ Regione", regioni, format_func=lambda x: "Tutte le regioni" if x is None else x)
 
-# Tipo Appalto filter (radio - poche opzioni)
-if 'tipo_appalto' in raw_df.columns and raw_df['tipo_appalto'].notna().any():
+# Tipo Appalto filter (usa colonna normalizzata se presente)
+if 'tipo_appalto_norm' in raw_df.columns and raw_df['tipo_appalto_norm'].notna().any():
+    tipo_list = sorted(raw_df['tipo_appalto_norm'].dropna().unique().tolist())
+    tipo_options = ["Tutti"] + tipo_list
+    tipo_sel_label = st.sidebar.radio("Tipologia contratto", tipo_options, horizontal=True)
+    tipo_appalto_sel = None if tipo_sel_label == "Tutti" else tipo_sel_label
+elif 'tipo_appalto' in raw_df.columns and raw_df['tipo_appalto'].notna().any():
     tipo_list = sorted(raw_df['tipo_appalto'].dropna().unique().tolist())
     tipo_options = ["Tutti"] + tipo_list
-    tipo_sel_label = st.sidebar.radio("Tipo Appalto", tipo_options, horizontal=True)
+    tipo_sel_label = st.sidebar.radio("Tipologia contratto", tipo_options, horizontal=True)
     tipo_appalto_sel = None if tipo_sel_label == "Tutti" else tipo_sel_label
 else:
     tipo_appalto_sel = None
@@ -776,8 +805,11 @@ if categoria_sel:
         filtered_df = filtered_df[filtered_df['_categoria'] == categoria_sel]
 if procedura_sel and 'procedura' in filtered_df.columns:
     filtered_df = filtered_df[filtered_df['procedura'] == procedura_sel]
-if tipo_appalto_sel and 'tipo_appalto' in filtered_df.columns:
-    filtered_df = filtered_df[filtered_df['tipo_appalto'] == tipo_appalto_sel]
+if tipo_appalto_sel:
+    if 'tipo_appalto_norm' in filtered_df.columns:
+        filtered_df = filtered_df[filtered_df['tipo_appalto_norm'] == tipo_appalto_sel]
+    elif 'tipo_appalto' in filtered_df.columns:
+        filtered_df = filtered_df[filtered_df['tipo_appalto'] == tipo_appalto_sel]
 if sottocategoria_sel and 'quick_category' in filtered_df.columns:
     filtered_df = filtered_df[filtered_df['quick_category'] == sottocategoria_sel]
 
