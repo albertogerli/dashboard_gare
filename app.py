@@ -3898,20 +3898,157 @@ if tab11:
         # Usa anno per evitare problemi timezone
         imminenti = stima_future[stima_future['anno_scadenza_stima'] <= anno_corrente + 1]
 
+        # Filtri geografici per Alert
         if len(imminenti) > 0:
+            # Identifica colonne geografiche
+            regione_col_alert = next((c for c in imminenti.columns if c.lower() == 'regione'), None)
+            comune_col_alert = next((c for c in imminenti.columns if c.lower() in ['comune', 'citta', 'buyer_locality']), None)
+
+            col_filter1, col_filter2 = st.columns(2)
+
+            with col_filter1:
+                if regione_col_alert and imminenti[regione_col_alert].notna().any():
+                    regioni_alert = ['Tutte'] + sorted(imminenti[regione_col_alert].dropna().unique().tolist())
+                    regione_alert_sel = st.selectbox("🗺️ Filtra per Regione", regioni_alert, key="alert_regione")
+                else:
+                    regione_alert_sel = 'Tutte'
+
+            with col_filter2:
+                # Filtra città in base alla regione selezionata
+                imminenti_filtered_reg = imminenti.copy()
+                if regione_alert_sel != 'Tutte' and regione_col_alert:
+                    imminenti_filtered_reg = imminenti[imminenti[regione_col_alert] == regione_alert_sel]
+
+                if comune_col_alert and imminenti_filtered_reg[comune_col_alert].notna().any():
+                    comuni_alert = ['Tutte'] + sorted(imminenti_filtered_reg[comune_col_alert].dropna().unique().tolist())
+                    comune_alert_sel = st.selectbox("🏙️ Filtra per Città", comuni_alert, key="alert_comune")
+                else:
+                    comune_alert_sel = 'Tutte'
+
+            # Applica filtri
+            imminenti_filtrati = imminenti.copy()
+            if regione_alert_sel != 'Tutte' and regione_col_alert:
+                imminenti_filtrati = imminenti_filtrati[imminenti_filtrati[regione_col_alert] == regione_alert_sel]
+            if comune_alert_sel != 'Tutte' and comune_col_alert:
+                imminenti_filtrati = imminenti_filtrati[imminenti_filtrati[comune_col_alert] == comune_alert_sel]
+
+            # KPI
             col1, col2, col3 = st.columns(3)
             with col1:
-                st.metric("🔴 Contratti Imminenti", f"{len(imminenti):,}".replace(",", "."))
+                st.metric("🔴 Contratti Imminenti", f"{len(imminenti_filtrati):,}".replace(",", "."))
             with col2:
-                st.metric("💰 Valore a Rischio", f"€{imminenti['award_amount'].sum()/1e9:.2f}B")
+                st.metric("💰 Valore a Rischio", f"€{imminenti_filtrati['award_amount'].sum()/1e9:.2f}B")
             with col3:
-                st.metric("🏢 Enti Coinvolti", f"{imminenti['buyer_name'].nunique():,}".replace(",", "."))
+                st.metric("🏢 Enti Coinvolti", f"{imminenti_filtrati['buyer_name'].nunique():,}".replace(",", "."))
 
             # Top categorie imminenti
-            imm_cat = imminenti.groupby('_categoria', observed=True)['ocid'].count().sort_values(ascending=False).head(5)
-            st.markdown("**Top 5 Categorie con Scadenze Imminenti:**")
-            for cat, count in imm_cat.items():
-                st.write(f"- {cat}: {count} contratti")
+            if len(imminenti_filtrati) > 0:
+                imm_cat = imminenti_filtrati.groupby('_categoria', observed=True)['ocid'].count().sort_values(ascending=False).head(5)
+                st.markdown("**Top 5 Categorie con Scadenze Imminenti:**")
+                for cat, count in imm_cat.items():
+                    st.write(f"- {cat}: {count} contratti")
+
+                # Mappa scadenze imminenti
+                st.markdown("---")
+                st.markdown("#### 🗺️ Mappa Scadenze Imminenti")
+
+                # Coordinate città italiane principali
+                city_coords_alert = {
+                    'Roma': (41.9028, 12.4964), 'Milano': (45.4642, 9.1900), 'Napoli': (40.8518, 14.2681),
+                    'Torino': (45.0703, 7.6869), 'Palermo': (38.1157, 13.3615), 'Genova': (44.4056, 8.9463),
+                    'Bologna': (44.4949, 11.3426), 'Firenze': (43.7696, 11.2558), 'Bari': (41.1171, 16.8719),
+                    'Catania': (37.5079, 15.0830), 'Venezia': (45.4408, 12.3155), 'Verona': (45.4384, 10.9916),
+                    'Messina': (38.1938, 15.5540), 'Padova': (45.4064, 11.8768), 'Trieste': (45.6495, 13.7768),
+                    'Brescia': (45.5416, 10.2118), 'Parma': (44.8015, 10.3279), 'Taranto': (40.4644, 17.2470),
+                    'Prato': (43.8777, 11.1020), 'Modena': (44.6471, 10.9252), 'Reggio Calabria': (38.1113, 15.6473),
+                    'Reggio Emilia': (44.6989, 10.6297), 'Perugia': (43.1107, 12.3908), 'Livorno': (43.5485, 10.3106),
+                    'Ravenna': (44.4184, 12.2035), 'Cagliari': (39.2238, 9.1217), 'Foggia': (41.4621, 15.5444),
+                    'Rimini': (44.0678, 12.5695), 'Salerno': (40.6824, 14.7681), 'Ferrara': (44.8381, 11.6198),
+                    'Ancona': (43.6158, 13.5189), 'Trento': (46.0679, 11.1211), 'Bolzano': (46.4983, 11.3548),
+                    'Pescara': (42.4618, 14.2161), "L'Aquila": (42.3498, 13.3995), 'Campobasso': (41.5603, 14.6626),
+                    'Potenza': (40.6404, 15.8056), 'Catanzaro': (38.9098, 16.5877), 'Aosta': (45.7372, 7.3209)
+                }
+
+                # Coordinate regioni (centroidi)
+                regioni_coords_alert = {
+                    'Lombardia': (45.4791, 9.8452), 'Lazio': (41.8931, 12.4828), 'Campania': (40.8333, 14.2500),
+                    'Sicilia': (37.5994, 14.0154), 'Veneto': (45.4347, 11.8711), 'Emilia-Romagna': (44.4938, 11.3387),
+                    'Piemonte': (45.0522, 7.5155), 'Puglia': (41.1171, 16.8719), 'Toscana': (43.4148, 11.2213),
+                    'Calabria': (38.9098, 16.5877), 'Sardegna': (40.1209, 9.0129), 'Liguria': (44.3168, 8.3965),
+                    'Marche': (43.6158, 13.5189), 'Abruzzo': (42.3541, 13.3919), 'Friuli-Venezia Giulia': (45.6361, 13.8040),
+                    'Trentino-Alto Adige': (46.4993, 11.3548), 'Umbria': (42.9384, 12.6218), 'Basilicata': (40.6404, 15.8056),
+                    'Molise': (41.5603, 14.6626), "Valle d'Aosta": (45.7372, 7.3209)
+                }
+
+                # Prova prima con città, poi con regioni
+                map_created = False
+
+                if comune_col_alert and imminenti_filtrati[comune_col_alert].notna().any():
+                    # Mappa per città
+                    cities_alert = imminenti_filtrati.groupby(comune_col_alert, observed=True).agg({
+                        'award_amount': 'sum',
+                        'ocid': 'count'
+                    }).reset_index()
+                    cities_alert.columns = ['citta', 'valore', 'num_contratti']
+                    cities_alert = cities_alert.dropna(subset=['citta'])
+                    cities_alert = cities_alert[cities_alert['citta'] != '']
+
+                    cities_alert['lat'] = cities_alert['citta'].map(lambda x: city_coords_alert.get(x, (None, None))[0])
+                    cities_alert['lng'] = cities_alert['citta'].map(lambda x: city_coords_alert.get(x, (None, None))[1])
+                    cities_alert_valid = cities_alert.dropna(subset=['lat', 'lng']).sort_values('valore', ascending=False).head(30)
+
+                    if len(cities_alert_valid) > 0:
+                        fig_map = px.scatter_map(
+                            cities_alert_valid,
+                            lat='lat',
+                            lon='lng',
+                            size='valore',
+                            color='num_contratti',
+                            hover_name='citta',
+                            hover_data={'num_contratti': True, 'valore': ':.2s'},
+                            color_continuous_scale='Reds',
+                            size_max=50,
+                            zoom=5,
+                            center={'lat': 42.0, 'lon': 12.5},
+                        )
+                        fig_map.update_layout(height=450, margin={"r":0,"t":0,"l":0,"b":0})
+                        st.plotly_chart(fig_map, width="stretch")
+                        map_created = True
+
+                if not map_created and regione_col_alert and imminenti_filtrati[regione_col_alert].notna().any():
+                    # Mappa per regioni se città non disponibili
+                    regioni_alert_df = imminenti_filtrati.groupby(regione_col_alert, observed=True).agg({
+                        'award_amount': 'sum',
+                        'ocid': 'count'
+                    }).reset_index()
+                    regioni_alert_df.columns = ['regione', 'valore', 'num_contratti']
+                    regioni_alert_df = regioni_alert_df.dropna(subset=['regione'])
+
+                    regioni_alert_df['lat'] = regioni_alert_df['regione'].map(lambda x: regioni_coords_alert.get(x, (42.0, 12.5))[0])
+                    regioni_alert_df['lon'] = regioni_alert_df['regione'].map(lambda x: regioni_coords_alert.get(x, (42.0, 12.5))[1])
+
+                    if len(regioni_alert_df) > 0:
+                        fig_map = px.scatter_map(
+                            regioni_alert_df,
+                            lat='lat',
+                            lon='lon',
+                            size='valore',
+                            color='num_contratti',
+                            hover_name='regione',
+                            hover_data={'num_contratti': True, 'valore': ':.2s'},
+                            color_continuous_scale='Reds',
+                            size_max=60,
+                            zoom=5,
+                            center={'lat': 42.0, 'lon': 12.5},
+                        )
+                        fig_map.update_layout(height=450, margin={"r":0,"t":0,"l":0,"b":0})
+                        st.plotly_chart(fig_map, width="stretch")
+                        map_created = True
+
+                if not map_created:
+                    st.info("📍 Dati geografici non disponibili per visualizzare la mappa")
+            else:
+                st.info("Nessun contratto con i filtri selezionati")
         else:
             st.success("✅ Nessun contratto in scadenza nei prossimi 12 mesi")
 
