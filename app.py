@@ -23,12 +23,70 @@ from dotenv import load_dotenv
 
 
 def safe_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    """Convert object dtype columns to string to avoid Arrow serialization warnings."""
+    """Make a DataFrame safe for Streamlit/Arrow rendering.
+
+    Streamlit renders dataframes via Arrow; some pandas dtypes (mixed object, tz-aware
+    datetimes, Period, etc.) can crash conversion. This helper normalizes those cases.
+    """
+    if df is None:
+        return pd.DataFrame()
+
     df_copy = df.copy()
+
+    # Arrow does not like MultiIndex in many cases
+    if isinstance(df_copy.index, pd.MultiIndex):
+        df_copy = df_copy.reset_index()
+
+    # Ensure column names are strings
+    df_copy.columns = [str(c) for c in df_copy.columns]
+
     for col in df_copy.columns:
-        if df_copy[col].dtype == 'object':
-            df_copy[col] = df_copy[col].astype(str).replace('nan', '').replace('None', '')
+        s = df_copy[col]
+
+        # Normalize tz-aware datetimes to tz-naive
+        try:
+            if pd.api.types.is_datetime64tz_dtype(s):
+                df_copy[col] = pd.to_datetime(s, errors="coerce").dt.tz_convert(None)
+                continue
+        except Exception:
+            pass
+
+        # Period dtype -> string
+        try:
+            if pd.api.types.is_period_dtype(s):
+                df_copy[col] = s.astype(str)
+                continue
+        except Exception:
+            pass
+
+        # Categories can contain mixed types -> string
+        try:
+            if pd.api.types.is_categorical_dtype(s):
+                df_copy[col] = s.astype(str)
+                continue
+        except Exception:
+            pass
+
+        # Objects (often mixed / dict / list) -> string
+        if s.dtype == "object":
+            def _norm_obj(v):
+                if isinstance(v, (dict, list, tuple, set)):
+                    try:
+                        return json.dumps(v, ensure_ascii=False, default=str)
+                    except Exception:
+                        return str(v)
+                return v
+
+            df_copy[col] = s.map(_norm_obj).astype(str).replace(
+                {"nan": "", "None": "", "NaT": ""}
+            )
+
     return df_copy
+
+
+def show_dataframe(df: pd.DataFrame, **kwargs):
+    """Streamlit dataframe rendering with Arrow-safe normalization."""
+    return st.dataframe(safe_dataframe(df), **kwargs)
 
 
 # Carica variabili d'ambiente dal file .env
@@ -1774,7 +1832,7 @@ if tab1:
         geo_detail = geo_detail.sort_values('valore', ascending=False)
 
         # Mostra tabella
-        st.dataframe(geo_detail[['Regione', 'N. Gare', 'Valore (€B)', 'Sconto Medio %']], use_container_width=True)
+        show_dataframe(geo_detail[['Regione', 'N. Gare', 'Valore (€B)', 'Sconto Medio %']], use_container_width=True)
 
         # Selezione regione per vedere dettaglio gare
         st.markdown("---")
@@ -1835,7 +1893,7 @@ if tab1:
         }
         gare_display = gare_display.rename(columns={k: v for k, v in col_rename.items() if k in gare_display.columns})
 
-        st.dataframe(gare_display, use_container_width=True, height=400)
+        show_dataframe(gare_display, use_container_width=True, height=400)
 
         # Download CSV
         st.markdown("---")
@@ -2273,7 +2331,7 @@ if 'tab20' in locals() and tab20:
                 if partecipanti_col_search and partecipanti_col_search in preview.columns:
                     preview[partecipanti_col_search] = pd.to_numeric(preview[partecipanti_col_search], errors='coerce').astype('Int64')
 
-                st.dataframe(preview.head(int(limit_preview)), use_container_width=True, height=500)
+                show_dataframe(preview.head(int(limit_preview)), use_container_width=True, height=500)
 
                 # Download completi
                 st.markdown("---")
@@ -2600,7 +2658,7 @@ if tab6:
     }
 
     stats_df = pd.DataFrame(stats)
-    st.dataframe(stats_df, use_container_width=True, hide_index=True)
+    show_dataframe(stats_df, use_container_width=True, hide_index=True)
 
 # ==================== TAB 7: RICERCA CITTÀ / STAZIONE APPALTANTE ====================
 if tab7:
@@ -2826,7 +2884,7 @@ if tab7:
                         fig.update_traces(textposition='outside')
                         st.plotly_chart(fig, use_container_width=True)
                     else:
-                        st.dataframe(top_suppliers, use_container_width=True)
+                        show_dataframe(top_suppliers, use_container_width=True)
             else:
                 st.info("Dati fornitori non disponibili")
 
@@ -2870,7 +2928,7 @@ if tab7:
                             fig.update_traces(textposition='outside')
                             st.plotly_chart(fig, use_container_width=True)
                         else:
-                            st.dataframe(top_buyers, use_container_width=True)
+                            show_dataframe(top_buyers, use_container_width=True)
                 else:
                     st.info("Dati stazioni appaltanti non disponibili")
 
@@ -2938,7 +2996,7 @@ if tab7:
                 start_idx = (page - 1) * page_size
                 end_idx = start_idx + page_size
 
-                st.dataframe(display_df.iloc[start_idx:end_idx], use_container_width=True, height=500)
+                show_dataframe(display_df.iloc[start_idx:end_idx], use_container_width=True, height=500)
                 st.caption(f"Mostrando {start_idx+1}-{min(end_idx, len(display_df))} di {len(display_df)} gare")
 
             # Export button
@@ -3036,7 +3094,7 @@ if tab7:
                     fig.update_traces(textposition='outside')
                     st.plotly_chart(fig, use_container_width=True)
 
-                st.dataframe(city_summary, use_container_width=True)
+                show_dataframe(city_summary, use_container_width=True)
         else:
             st.info("Dati città non disponibili per i filtri selezionati")
 
@@ -3179,13 +3237,13 @@ if tab8:
             }).reset_index()
             tipo_summary.columns = ['Tipo', 'N. Gare', 'Valore (€)']
             tipo_summary['Valore (€)'] = tipo_summary['Valore (€)'].apply(lambda x: f'€{x/1e6:.0f}M')
-            st.dataframe(safe_dataframe(tipo_summary), use_container_width=True, hide_index=True)
+            show_dataframe(tipo_summary, use_container_width=True, hide_index=True)
 
             st.markdown("#### 🏙️ Top 10 Città")
             top_cities = consip_by_city.nlargest(10, 'valore')[['citta', 'num_gare', 'valore']]
             top_cities['valore'] = top_cities['valore'].apply(lambda x: f'€{x/1e6:.0f}M')
             top_cities.columns = ['Città', 'Gare', 'Valore']
-            st.dataframe(safe_dataframe(top_cities), use_container_width=True, hide_index=True)
+            show_dataframe(top_cities, use_container_width=True, hide_index=True)
 
         # Timeline
         st.markdown("---")
@@ -3220,7 +3278,7 @@ if tab8:
         display_consip.columns = ['Data', 'Città', 'Regione', 'Tipo', 'Edizione', 'Oggetto', 'Valore', 'Sconto', 'Aggiudicatario']
         display_consip = display_consip.sort_values('Data', ascending=False)
 
-        st.dataframe(display_consip.head(100), use_container_width=True, height=400)
+        show_dataframe(display_consip.head(100), use_container_width=True, height=400)
 
         # Download
         st.download_button(
@@ -3545,7 +3603,7 @@ if tab9:
                 start_idx = (page - 1) * page_size
                 end_idx = start_idx + page_size
 
-                st.dataframe(display_supplier.iloc[start_idx:end_idx], use_container_width=True, height=400)
+                show_dataframe(display_supplier.iloc[start_idx:end_idx], use_container_width=True, height=400)
                 st.caption(f"Mostrando {start_idx+1}-{min(end_idx, len(display_supplier))} di {len(display_supplier)} gare")
 
             # Export
@@ -3617,7 +3675,7 @@ if tab9:
                     display_top['Valore (€)'] = display_top['Valore (€)'].apply(lambda x: f'€{x/1e6:.0f}M')
                 if 'Sconto Medio %' in display_top.columns:
                     display_top['Sconto Medio %'] = display_top['Sconto Medio %'].apply(lambda x: f'{x:.1f}%' if pd.notna(x) else '-')
-                st.dataframe(display_top, use_container_width=True, height=400)
+                show_dataframe(display_top, use_container_width=True, height=400)
 
 # ==================== TAB 10: ANALISI MERCATO ====================
 if tab10:
@@ -4007,7 +4065,7 @@ if tab10:
                     top_large = large_contracts.nlargest(5, amount_col_t10)[cols_to_show].copy()
                     top_large[amount_col_t10] = top_large[amount_col_t10].apply(lambda x: f'€{x/1e6:.0f}M')
                     top_large.columns = col_labels
-                    st.dataframe(top_large, use_container_width=True, hide_index=True)
+                    show_dataframe(top_large, use_container_width=True, hide_index=True)
         else:
             st.info("Campo importo non disponibile")
 
@@ -4031,7 +4089,7 @@ if tab10:
                             })
 
             if dominant:
-                st.dataframe(pd.DataFrame(dominant), use_container_width=True, hide_index=True)
+                show_dataframe(pd.DataFrame(dominant), use_container_width=True, hide_index=True)
             else:
                 st.info("Nessun fornitore con quota >30% in una categoria")
         else:
@@ -4586,7 +4644,7 @@ if tab11:
 
                         if results_rows:
                             res_df = pd.DataFrame(results_rows)
-                            st.dataframe(safe_dataframe(res_df), use_container_width=True, hide_index=True)
+                            show_dataframe(res_df, use_container_width=True, hide_index=True)
                         st.success("✅ Enrichment completato: cache aggiornata.")
 
     # ==================== VISTA TERRITORIALE: ATTIVI + SCADENZE ====================
@@ -4696,7 +4754,7 @@ if tab11:
                         f"Scadenze entro {max_anni}a",
                         'Giorni a prossima scadenza'
                     ]
-                    st.dataframe(safe_dataframe(display), use_container_width=True, hide_index=True)
+                    show_dataframe(display, use_container_width=True, hide_index=True)
 
                 if len(summary) > 0:
                     # Drilldown per area
@@ -4747,7 +4805,7 @@ if tab11:
                             'award_date': 'Aggiudicazione',
                             'anac_url': 'Dettaglio ANAC'
                         })
-                        st.dataframe(safe_dataframe(det), use_container_width=True, hide_index=True)
+                        show_dataframe(det, use_container_width=True, hide_index=True)
                     else:
                         st.info("Nessun dettaglio disponibile per l'area selezionata.")
 
@@ -4890,7 +4948,7 @@ if tab11:
                 display_df['Aggiudicatario'] = display_df['Aggiudicatario'].apply(lambda x: str(x)[:40] if pd.notna(x) else '-')
 
             display_df.columns = ['Scadenza', 'Tipo', 'Comune', 'Regione', 'Aggiudicatario', 'Valore', 'Durata (gg)']
-            st.dataframe(display_df.sort_values('Scadenza'), use_container_width=True, hide_index=True)
+            show_dataframe(display_df.sort_values('Scadenza'), use_container_width=True, hide_index=True)
 
             # Download
             csv = contratti_mostra.to_csv(index=False)
@@ -5580,7 +5638,7 @@ if tab13:
             })
 
     if detail_data:
-        st.dataframe(pd.DataFrame(detail_data), use_container_width=True, hide_index=True)
+        show_dataframe(pd.DataFrame(detail_data), use_container_width=True, hide_index=True)
 
 # ==================== TAB 14: NETWORK ANALYSIS ====================
 if tab14:
@@ -5700,7 +5758,7 @@ if tab14:
                         outliers_display[amount_col_net] = outliers_display[amount_col_net].apply(lambda x: f'€{x/1e6:.2f}M' if pd.notna(x) else 'N/A')
                         outliers_display['z_score'] = outliers_display['z_score'].apply(lambda x: f'{x:.1f}')
                         outliers_display.columns = ['Fornitore', 'Ente', 'Importo', 'Z-Score']
-                        st.dataframe(outliers_display, use_container_width=True, height=300)
+                        show_dataframe(outliers_display, use_container_width=True, height=300)
                         st.warning(f"⚠️ Trovati {len(outliers)} outlier su {len(filtered_df)} gare ({len(outliers)/len(filtered_df)*100:.2f}%)")
                     else:
                         st.success("✅ Nessun outlier significativo rilevato")
@@ -5916,7 +5974,7 @@ if tab14:
             top_edges['fornitore'] = top_edges['fornitore'].str[:30]
             top_edges['valore'] = top_edges['valore'].apply(lambda x: f"€{x/1e6:.1f}M")
             top_edges.columns = ['Ente', 'Fornitore', 'N. Gare', 'Valore Totale']
-            st.dataframe(top_edges, use_container_width=True, hide_index=True)
+            show_dataframe(top_edges, use_container_width=True, hide_index=True)
 
         else:
             st.info("Dati insufficienti per il network graph. Prova a ridurre il minimo gare per connessione.")
@@ -5960,7 +6018,7 @@ if tab15:
         with st.expander("📋 Colonne disponibili nel dataset", expanded=False):
             cols_info = filtered_df.dtypes.to_frame('tipo').reset_index()
             cols_info.columns = ['Colonna', 'Tipo']
-            st.dataframe(cols_info, use_container_width=True, hide_index=True)
+            show_dataframe(cols_info, use_container_width=True, hide_index=True)
 
         # Examples - UI migliorata con cards
         st.markdown("### 💡 Esempi di richieste")
@@ -6802,8 +6860,10 @@ if tab19:
             st.plotly_chart(fig, use_container_width=True)
 
             # Stats table
-            st.dataframe(
-                safe_dataframe(region_data[['Regione', 'N_Gare', 'Valore_B']].rename(columns={'Valore_B': 'Valore (€B)'}).sort_values('Valore (€B)', ascending=False)),
+            show_dataframe(
+                region_data[['Regione', 'N_Gare', 'Valore_B']]
+                .rename(columns={'Valore_B': 'Valore (€B)'})
+                .sort_values('Valore (€B)', ascending=False),
                 use_container_width=True,
                 hide_index=True
             )
@@ -6839,7 +6899,7 @@ if tab19:
                 fig.update_layout(height=600, yaxis={'categoryorder': 'total ascending'})
                 st.plotly_chart(fig, use_container_width=True)
 
-                st.dataframe(city_filtered.head(30), use_container_width=True, hide_index=True)
+                show_dataframe(city_filtered.head(30), use_container_width=True, hide_index=True)
             else:
                 st.info(f"Nessuna città con >= {min_gare} gare")
         else:
