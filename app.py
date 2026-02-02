@@ -3667,11 +3667,398 @@ if tab11:
     # Carica dati CONSIP per scadenze
     consip_exp = load_consip_data()
 
-    if len(consip_exp) > 0 and 'DataAggiudicazione' in consip_exp.columns and 'DURATA_PREVISTA' in consip_exp.columns:
-        # Calcola scadenze
-        consip_exp['DataAggiudicazione'] = pd.to_datetime(consip_exp['DataAggiudicazione'], format='%d/%m/%Y', errors='coerce')
+    def _to_dt(series, fmt=None):
+        if series is None:
+            return pd.Series(dtype="datetime64[ns]")
+        s = pd.to_datetime(series, format=fmt, errors='coerce')
+        try:
+            if getattr(s.dt, 'tz', None) is not None and s.dt.tz is not None:
+                s = s.dt.tz_convert(None)
+        except Exception:
+            pass
+        return s
+
+    def _macro_area_from_regione(regione: str):
+        if pd.isna(regione):
+            return None
+        r = str(regione).strip()
+        macro_map = {
+            "Piemonte": "Nord Ovest",
+            "Valle d'Aosta": "Nord Ovest",
+            "Valle d’Aosta": "Nord Ovest",
+            "Liguria": "Nord Ovest",
+            "Lombardia": "Nord Ovest",
+            "Veneto": "Nord Est",
+            "Trentino-Alto Adige": "Nord Est",
+            "Trentino Alto Adige": "Nord Est",
+            "Friuli-Venezia Giulia": "Nord Est",
+            "Friuli Venezia Giulia": "Nord Est",
+            "Emilia-Romagna": "Nord Est",
+            "Emilia Romagna": "Nord Est",
+            "Toscana": "Centro",
+            "Umbria": "Centro",
+            "Marche": "Centro",
+            "Lazio": "Centro",
+            "Abruzzo": "Sud",
+            "Molise": "Sud",
+            "Campania": "Sud",
+            "Puglia": "Sud",
+            "Basilicata": "Sud",
+            "Calabria": "Sud",
+            "Sicilia": "Isole",
+            "Sardegna": "Isole",
+        }
+        return macro_map.get(r, None)
+
+    def _build_consip_scadenza_map(df_consip: pd.DataFrame) -> pd.DataFrame:
+        if df_consip is None or len(df_consip) == 0 or 'CIG' not in df_consip.columns:
+            return pd.DataFrame(columns=['cig', 'scadenza_consip', 'durata_giorni_consip'])
+
+        dfc = df_consip.copy()
+        for col in ['DataAggiudicazione', 'DATA_ULTIMO_PERFEZIONAMENTO', 'DATA_COMUNICAZIONE_ESITO', 'DataPubblicazione']:
+            if col in dfc.columns:
+                dfc[col] = _to_dt(dfc[col], fmt='%d/%m/%Y')
+
+        dfc['durata_giorni_consip'] = pd.to_numeric(dfc.get('DURATA_PREVISTA', pd.Series(dtype='float64')), errors='coerce')
+
+        if 'DataAggiudicazione' in dfc.columns:
+            start = dfc['DataAggiudicazione']
+        else:
+            start = pd.Series([pd.NaT] * len(dfc))
+        for fallback_col in ['DATA_ULTIMO_PERFEZIONAMENTO', 'DATA_COMUNICAZIONE_ESITO', 'DataPubblicazione']:
+            if fallback_col in dfc.columns:
+                start = start.fillna(dfc[fallback_col])
+        dfc['data_inizio_scadenza_consip'] = start
+        dfc['scadenza_consip'] = dfc['data_inizio_scadenza_consip'] + pd.to_timedelta(dfc['durata_giorni_consip'], unit='D')
+
+        dfc['cig'] = dfc['CIG'].astype(str).str.strip()
+        dfc = dfc[dfc['cig'].ne('') & dfc['scadenza_consip'].notna()].copy()
+
+        # Pulizia date fuori scala (evita 19xx e scadenze troppo lontane nel futuro)
+        max_year = pd.Timestamp.now().year + 30
+        year = dfc['scadenza_consip'].dt.year
+        dfc = dfc[(year >= 2000) & (year <= max_year)]
+
+        # Dedup: per lo stesso CIG prendo la scadenza massima (caso lotti/righe multiple)
+        out = dfc.groupby('cig', as_index=False).agg({
+            'scadenza_consip': 'max',
+            'durata_giorni_consip': 'max'
+        })
+        return out
+
+    def _compute_scadenze_contratti(df_base: pd.DataFrame, consip_map: pd.DataFrame, include_stime: bool) -> pd.DataFrame:
+        if df_base is None or len(df_base) == 0:
+            return pd.DataFrame()
+
+        # Colonne minime per ridurre memoria
+        keep_candidates = [
+            'chiave', 'cig', 'ocid',
+            'buyer_name', 'ente_appaltante',
+            'supplier_name', 'aggiudicatario',
+            'comune', 'buyer_locality', 'regione',
+            'award_amount', 'importo_aggiudicazione',
+            'award_date', 'data_aggiudicazione',
+            'data_scadenza', 'durata_appalto',
+            '_categoria', 'categoria', 'quick_category', 'tipo_appalto'
+        ]
+        keep_cols = [c for c in keep_candidates if c in df_base.columns]
+        d = df_base[keep_cols].copy()
+
+        # Normalizza campi principali
+        if 'cig' in d.columns:
+            d['cig'] = d['cig'].fillna('').astype(str).str.strip()
+            d['cig'] = d['cig'].replace({'nan': '', 'None': ''})
+        else:
+            d['cig'] = ''
+
+        if 'award_date' in d.columns:
+            d['award_date'] = _to_dt(d['award_date'])
+        elif 'data_aggiudicazione' in d.columns:
+            d['award_date'] = _to_dt(d['data_aggiudicazione'])
+        else:
+            d['award_date'] = pd.NaT
+
+        if 'award_amount' in d.columns:
+            d['award_amount'] = pd.to_numeric(d['award_amount'], errors='coerce')
+        elif 'importo_aggiudicazione' in d.columns:
+            d['award_amount'] = pd.to_numeric(d['importo_aggiudicazione'], errors='coerce')
+        else:
+            d['award_amount'] = np.nan
+
+        # (1) data_scadenza esplicita (se presente)
+        if 'data_scadenza' in d.columns:
+            d['scadenza_da_data_scadenza'] = _to_dt(d['data_scadenza'])
+        else:
+            d['scadenza_da_data_scadenza'] = pd.NaT
+
+        # (2) scadenza da CONSIP (arricchimento per CIG)
+        if consip_map is not None and len(consip_map) > 0:
+            d = d.merge(consip_map, on='cig', how='left')
+        else:
+            d['scadenza_consip'] = pd.NaT
+            d['durata_giorni_consip'] = np.nan
+
+        # (3) scadenza da durata_appalto (dataset principale)
+        if 'durata_appalto' in d.columns:
+            d['durata_giorni_dataset'] = pd.to_numeric(d['durata_appalto'], errors='coerce')
+        else:
+            d['durata_giorni_dataset'] = np.nan
+        d['scadenza_da_durata_appalto'] = d['award_date'] + pd.to_timedelta(d['durata_giorni_dataset'], unit='D')
+
+        # (4) stima da categoria (fallback)
+        if include_stime:
+            durate_stimate = {
+                'Servizio Luce': 9,
+                'Manutenzione': 4,
+                'Pulizie': 3,
+                'Riscaldamento': 7,
+                'Vigilanza': 3,
+                'Facchinaggio': 3,
+                'Verde': 3,
+                'Traslochi': 2,
+                'Portierato': 3,
+                'Disinfestazione': 2
+            }
+
+            def get_durata_anni(cat):
+                if pd.isna(cat):
+                    return 3
+                s = str(cat).lower()
+                for key, val in durate_stimate.items():
+                    if key.lower() in s:
+                        return val
+                return 3
+
+            cat_col = '_categoria' if '_categoria' in d.columns else ('categoria' if 'categoria' in d.columns else None)
+            if cat_col:
+                d['durata_anni_stima'] = d[cat_col].apply(get_durata_anni)
+                d['scadenza_stimata'] = d['award_date'] + pd.to_timedelta(d['durata_anni_stima'] * 365, unit='D')
+            else:
+                d['durata_anni_stima'] = np.nan
+                d['scadenza_stimata'] = pd.NaT
+        else:
+            d['durata_anni_stima'] = np.nan
+            d['scadenza_stimata'] = pd.NaT
+
+        # Scadenza finale (priorità)
+        d['scadenza_contratto'] = (
+            d['scadenza_da_data_scadenza']
+            .fillna(d['scadenza_consip'])
+            .fillna(d['scadenza_da_durata_appalto'])
+            .fillna(d['scadenza_stimata'])
+        )
+
+        # Fonte scadenza
+        d['scadenza_fonte'] = np.select(
+            [
+                d['scadenza_da_data_scadenza'].notna(),
+                d['scadenza_consip'].notna(),
+                d['scadenza_da_durata_appalto'].notna(),
+                d['scadenza_stimata'].notna()
+            ],
+            [
+                'data_scadenza',
+                'consip',
+                'durata_appalto',
+                'stima_categoria'
+            ],
+            default='mancante'
+        )
+
+        # Pulizia date fuori scala (evita 19xx e scadenze troppo lontane nel futuro)
+        max_year = pd.Timestamp.now().year + 30
+        year = d['scadenza_contratto'].dt.year
+        invalid = d['scadenza_contratto'].notna() & ((year < 2000) | (year > max_year))
+        d.loc[invalid, 'scadenza_contratto'] = pd.NaT
+        d.loc[invalid, 'scadenza_fonte'] = 'invalid'
+
+        oggi_ts = pd.Timestamp.now().normalize()
+        d['giorni_alla_scadenza'] = (d['scadenza_contratto'] - oggi_ts).dt.days
+        d['stato_scadenza'] = np.select(
+            [d['scadenza_contratto'].isna(), d['giorni_alla_scadenza'] < 0],
+            ['Sconosciuta', 'Scaduto'],
+            default='Attivo'
+        )
+
+        # Link di dettaglio (ANAC) - utile se serve verificare un CIG manualmente
+        d['anac_url'] = d['cig'].apply(
+            lambda x: f"https://dati.anticorruzione.it/superset/dashboard/dettaglio_cig/?cig={x}&standalone=2" if x else ""
+        )
+        return d
+
+    consip_map_scadenze = _build_consip_scadenza_map(consip_exp)
+
+    # ==================== VISTA TERRITORIALE: ATTIVI + SCADENZE ====================
+    st.subheader("🧭 Contratti attivi per città/area e scadenza")
+    st.caption("Scadenza calcolata con priorità: `data_scadenza` → CONSIP → `durata_appalto` → stima per categoria (se abilitata).")
+
+    col_cfg1, col_cfg2, col_cfg3 = st.columns([2, 2, 2])
+    with col_cfg1:
+        raggruppa = st.radio("Raggruppa per", ["Comune", "Regione", "Macro-area"], horizontal=True, key="scad_raggruppa")
+    with col_cfg2:
+        include_stime = st.checkbox("Includi stime (fallback)", value=True, key="scad_include_stime")
+    with col_cfg3:
+        solo_attivi = st.checkbox("Solo contratti attivi", value=True, key="scad_solo_attivi")
+
+    df_scad = _compute_scadenze_contratti(filtered_df, consip_map_scadenze, include_stime=include_stime)
+
+    if df_scad is None or len(df_scad) == 0:
+        st.info("Dati insufficienti per calcolare le scadenze con i filtri correnti.")
+    else:
+        # Colonne geografiche
+        regione_col_scad = next((c for c in ['regione'] if c in df_scad.columns), None)
+        comune_col_scad = next((c for c in ['comune', 'buyer_locality'] if c in df_scad.columns), None)
+
+        if raggruppa == "Regione":
+            group_col = regione_col_scad
+        elif raggruppa == "Macro-area":
+            if regione_col_scad:
+                df_scad['macro_area'] = df_scad[regione_col_scad].apply(_macro_area_from_regione)
+                group_col = 'macro_area'
+            else:
+                group_col = None
+        else:
+            group_col = comune_col_scad
+
+        if not group_col:
+            st.warning("⚠️ Colonne geografiche non disponibili per il raggruppamento selezionato.")
+        else:
+            base = df_scad.copy()
+            base[group_col] = base[group_col].astype('string').str.strip()
+            base = base[base[group_col].notna() & base[group_col].ne('')].copy()
+
+            if solo_attivi:
+                base = base[base['stato_scadenza'] == 'Attivo']
+
+            # Orizzonte: utile per evidenziare scadenze “vicine” senza nascondere le aree
+            max_anni = st.slider("Orizzonte scadenze (anni)", min_value=1, max_value=15, value=5, key="scad_orizzonte")
+            solo_entro_orizzonte = st.checkbox("Mostra solo aree con scadenze entro orizzonte", value=False, key="scad_solo_entro")
+            horizon_days = max_anni * 365
+
+            if len(base) == 0:
+                st.info("Nessun contratto disponibile con i filtri correnti.")
+            else:
+                id_col = next((c for c in ['chiave', 'ocid', 'cig'] if c in base.columns), 'cig')
+                base_future = base[base['giorni_alla_scadenza'].notna() & (base['giorni_alla_scadenza'] >= 0)].copy()
+                base_entro = base_future[base_future['giorni_alla_scadenza'] <= horizon_days].copy()
+
+                prossima = base_future.groupby(group_col, observed=True)['scadenza_contratto'].min().reset_index()
+                prossima = prossima.rename(columns={'scadenza_contratto': 'prossima_scadenza'})
+
+                entro_counts = base_entro.groupby(group_col, observed=True).agg(
+                    scadenze_entro_orizzonte=(id_col, 'nunique'),
+                ).reset_index()
+
+                summary = base.groupby(group_col, observed=True).agg(
+                    contratti=(id_col, 'nunique'),
+                    valore=('award_amount', 'sum'),
+                    scadenze_12m=('giorni_alla_scadenza', lambda s: ((s >= 0) & (s <= 365)).sum()),
+                ).reset_index()
+                summary = summary.merge(prossima, on=group_col, how='left')
+                summary = summary.merge(entro_counts, on=group_col, how='left')
+                summary['scadenze_entro_orizzonte'] = summary['scadenze_entro_orizzonte'].fillna(0).astype(int)
+                summary['giorni_alla_prossima_scadenza'] = (summary['prossima_scadenza'] - pd.Timestamp.now().normalize()).dt.days
+                summary = summary.sort_values(['giorni_alla_prossima_scadenza', 'contratti'], ascending=[True, False])
+
+                if solo_entro_orizzonte:
+                    summary = summary[summary['scadenze_entro_orizzonte'] > 0]
+
+                if len(summary) == 0:
+                    st.info("Nessuna area con scadenze nell'orizzonte selezionato.")
+                else:
+                    # KPI
+                    k1, k2, k3, k4 = st.columns(4)
+                    with k1:
+                        st.metric("📍 Aree (con scadenze)", f"{summary[group_col].nunique():,}".replace(",", "."))
+                    with k2:
+                        st.metric("📋 Contratti", f"{int(summary['contratti'].sum()):,}".replace(",", "."))
+                    with k3:
+                        st.metric("⚠️ Scadenze 12 mesi", f"{int(summary['scadenze_12m'].sum()):,}".replace(",", "."))
+                    with k4:
+                        st.metric("💰 Valore (somma)", f"€{summary['valore'].sum()/1e9:.2f}B")
+
+                    # Tabella
+                    display = summary.copy()
+                    display['prossima_scadenza'] = display['prossima_scadenza'].dt.strftime('%d/%m/%Y')
+                    display['valore'] = display['valore'].apply(lambda x: f"€{x/1e6:.1f}M" if pd.notna(x) else "-")
+                    display.columns = [
+                        raggruppa,
+                        'Contratti',
+                        'Valore',
+                        'Prossima Scadenza',
+                        'Scadenze 12M',
+                        f"Scadenze entro {max_anni}a",
+                        'Giorni a prossima scadenza'
+                    ]
+                    st.dataframe(safe_dataframe(display), width="stretch", hide_index=True)
+
+                if len(summary) > 0:
+                    # Drilldown per area
+                    st.markdown("#### 🔎 Dettaglio per area")
+                    area_sel = st.selectbox(
+                        f"Seleziona {raggruppa.lower()}",
+                        summary[group_col].tolist(),
+                        key="scad_area_sel"
+                    )
+                    dettaglio = base[base[group_col] == area_sel].copy()
+                    dettaglio = dettaglio[dettaglio['giorni_alla_scadenza'].notna() & (dettaglio['giorni_alla_scadenza'] >= 0)]
+                    dettaglio_entro = st.checkbox(f"Dettaglio: solo scadenze entro {max_anni} anni", value=False, key="scad_det_entro")
+                    if dettaglio_entro:
+                        dettaglio = dettaglio[dettaglio['giorni_alla_scadenza'] <= horizon_days]
+                    dettaglio = dettaglio.sort_values('scadenza_contratto', ascending=True)
+
+                    cols_det = []
+                    for c in ['scadenza_contratto', 'giorni_alla_scadenza', 'scadenza_fonte', 'cig', 'buyer_name', 'supplier_name', '_categoria', 'award_amount', 'award_date', 'anac_url']:
+                        if c in dettaglio.columns:
+                            cols_det.append(c)
+
+                    if len(dettaglio) > 0 and cols_det:
+                        det = dettaglio[cols_det].copy()
+                        if 'award_amount' in det.columns:
+                            det['award_amount'] = det['award_amount'].apply(lambda x: f"€{x/1e3:.0f}K" if pd.notna(x) else "-")
+                        if 'award_date' in det.columns:
+                            det['award_date'] = det['award_date'].dt.strftime('%d/%m/%Y')
+                        if 'scadenza_contratto' in det.columns:
+                            det['scadenza_contratto'] = det['scadenza_contratto'].dt.strftime('%d/%m/%Y')
+                        det = det.rename(columns={
+                            'scadenza_contratto': 'Scadenza',
+                            'giorni_alla_scadenza': 'Giorni alla scadenza',
+                            'scadenza_fonte': 'Fonte scadenza',
+                            'cig': 'CIG',
+                            'buyer_name': 'Ente',
+                            'supplier_name': 'Aggiudicatario',
+                            '_categoria': 'Categoria',
+                            'award_amount': 'Importo',
+                            'award_date': 'Aggiudicazione',
+                            'anac_url': 'Dettaglio ANAC'
+                        })
+                        st.dataframe(safe_dataframe(det), width="stretch", hide_index=True)
+                    else:
+                        st.info("Nessun dettaglio disponibile per l'area selezionata.")
+
+                    # Download dettaglio
+                    csv_det = dettaglio.to_csv(index=False)
+                    st.download_button(
+                        f"📥 Scarica dettaglio ({raggruppa}: {area_sel})",
+                        csv_det,
+                        f"contratti_scadenza_{raggruppa.lower()}_{str(area_sel).replace(' ', '_')}.csv",
+                        "text/csv"
+                    )
+
+    st.markdown("---")
+
+    if len(consip_exp) > 0 and 'DURATA_PREVISTA' in consip_exp.columns:
+        # Calcola scadenze (CONSIP) con fallback su date alternative quando DataAggiudicazione è mancante
+        for col in ['DataAggiudicazione', 'DATA_ULTIMO_PERFEZIONAMENTO', 'DATA_COMUNICAZIONE_ESITO', 'DataPubblicazione']:
+            if col in consip_exp.columns:
+                consip_exp[col] = _to_dt(consip_exp[col], fmt='%d/%m/%Y')
         consip_exp['durata_giorni'] = pd.to_numeric(consip_exp['DURATA_PREVISTA'], errors='coerce')
-        consip_exp['ScadenzaContratto'] = consip_exp['DataAggiudicazione'] + pd.to_timedelta(consip_exp['durata_giorni'], unit='D')
+        start = consip_exp['DataAggiudicazione'] if 'DataAggiudicazione' in consip_exp.columns else pd.Series([pd.NaT] * len(consip_exp))
+        for fallback_col in ['DATA_ULTIMO_PERFEZIONAMENTO', 'DATA_COMUNICAZIONE_ESITO', 'DataPubblicazione']:
+            if fallback_col in consip_exp.columns:
+                start = start.fillna(consip_exp[fallback_col])
+        consip_exp['data_inizio_scadenza'] = start
+        consip_exp['ScadenzaContratto'] = consip_exp['data_inizio_scadenza'] + pd.to_timedelta(consip_exp['durata_giorni'], unit='D')
 
         # Filtra contratti validi con scadenza
         contratti_validi = consip_exp[consip_exp['ScadenzaContratto'].notna()].copy()
