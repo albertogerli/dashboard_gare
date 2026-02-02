@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Dashboard Gare Pubbliche - Streamlit (Extended)"""
 
+from __future__ import annotations
 
 import streamlit as st
 import pandas as pd
@@ -15,6 +16,8 @@ import os
 import requests
 import hashlib
 import re
+import time
+from urllib.parse import urlparse
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -227,6 +230,543 @@ st.markdown("""
 
 # Favorites storage path
 FAVORITES_PATH = Path(__file__).parent.parent / "data" / "output" / "dashboard" / "favorites.json"
+
+# CIG enrichment cache path
+CIG_ENRICHMENT_CACHE_PATH = Path(__file__).parent.parent / "data" / "output" / "dashboard" / "cig_enrichment_cache.json"
+CIG_ENRICHMENT_CACHE_VERSION = 1
+CIG_ENRICHMENT_TTL_DAYS_DEFAULT = 30
+
+_CIG_REGEX = re.compile(r'^[A-Z0-9]{10}$', flags=re.I)
+_DURATION_KEYWORDS_RE = re.compile(
+    r"(durata|mesi|anni|giorni|rinnovo|proroga|quinquenn|trienn|bienn|annuale|decorrenza|stipula|consegna)",
+    flags=re.I
+)
+_URL_RE = re.compile(r'((?:https?://|www\.)[^\s\"\'<>]+)', flags=re.I)
+
+def load_cig_enrichment_cache() -> dict:
+    """Load persisted CIG enrichment cache."""
+    if not CIG_ENRICHMENT_CACHE_PATH.exists():
+        return {"version": CIG_ENRICHMENT_CACHE_VERSION, "items": {}}
+    try:
+        data = json.loads(CIG_ENRICHMENT_CACHE_PATH.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return {"version": CIG_ENRICHMENT_CACHE_VERSION, "items": {}}
+        if data.get("version") != CIG_ENRICHMENT_CACHE_VERSION:
+            # Basic forward-compat: keep items if present
+            items = data.get("items", {})
+            return {"version": CIG_ENRICHMENT_CACHE_VERSION, "items": items if isinstance(items, dict) else {}}
+        items = data.get("items", {})
+        return {"version": CIG_ENRICHMENT_CACHE_VERSION, "items": items if isinstance(items, dict) else {}}
+    except Exception:
+        return {"version": CIG_ENRICHMENT_CACHE_VERSION, "items": {}}
+
+def save_cig_enrichment_cache(cache: dict) -> None:
+    """Save cache with atomic write."""
+    CIG_ENRICHMENT_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = CIG_ENRICHMENT_CACHE_PATH.with_suffix(".tmp")
+    payload = cache if isinstance(cache, dict) else {"version": CIG_ENRICHMENT_CACHE_VERSION, "items": {}}
+    payload.setdefault("version", CIG_ENRICHMENT_CACHE_VERSION)
+    payload.setdefault("items", {})
+    tmp_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+    tmp_path.replace(CIG_ENRICHMENT_CACHE_PATH)
+
+def _normalize_cig(cig: str) -> str:
+    if cig is None:
+        return ""
+    s = str(cig).strip().upper()
+    if s in {"NAN", "NONE"}:
+        return ""
+    return s
+
+def _is_valid_cig(cig: str) -> bool:
+    s = _normalize_cig(cig)
+    return bool(s) and bool(_CIG_REGEX.match(s))
+
+def _chunked_read_paths_for_gare_unificate():
+    """Return candidate paths for gare_unificate (gz or csv)."""
+    gz_path = Path(__file__).parent / "data" / "gare_unificate.csv.gz"
+    unified_path = Path(__file__).parent.parent / "data" / "output" / "categorie" / "gare_unificate.csv"
+    old_path = Path(__file__).parent.parent / "data" / "output" / "categorie" / "gare_filtrate_tutte.csv"
+    for p in [gz_path, unified_path, old_path]:
+        if p.exists():
+            yield p
+
+def load_testo_completo_for_cigs(cigs: set[str], max_chars_per_cig: int = 20000) -> dict:
+    """Load testo_completo/oggetto on-demand for selected CIGs without loading full dataset."""
+    target = {_normalize_cig(c) for c in (cigs or set()) if _normalize_cig(c)}
+    target = {c for c in target if _is_valid_cig(c)}
+    if not target:
+        return {}
+
+    path = next(_chunked_read_paths_for_gare_unificate(), None)
+    if path is None:
+        return {}
+
+    out = {}
+    try:
+        compression = 'gzip' if str(path).endswith('.gz') else None
+        header = pd.read_csv(path, compression=compression, nrows=0)
+        available = set(header.columns.tolist())
+        base_cols = ['cig', 'testo_completo', 'oggetto', 'data_aggiudicazione']
+        usecols = [c for c in base_cols if c in available]
+        if 'cig' not in usecols:
+            return {}
+        for chunk in pd.read_csv(path, compression=compression, usecols=usecols, dtype={'cig': 'str'}, chunksize=50000, low_memory=False):
+            if 'cig' not in chunk.columns:
+                continue
+            chunk['cig'] = chunk['cig'].fillna('').astype(str).str.strip().str.upper()
+            sub = chunk[chunk['cig'].isin(target)]
+            if len(sub) == 0:
+                continue
+            for _, row in sub.iterrows():
+                cig = _normalize_cig(row.get('cig'))
+                if cig in out:
+                    continue
+                testo = row.get('testo_completo')
+                oggetto = row.get('oggetto')
+                award = row.get('data_aggiudicazione')
+                text = ""
+                if pd.notna(oggetto) and str(oggetto).strip():
+                    text += f"OGGETTO: {str(oggetto).strip()}\n"
+                if pd.notna(award) and str(award).strip():
+                    text += f"DATA_AGGIUDICAZIONE_RAW: {str(award).strip()}\n"
+                if pd.notna(testo) and str(testo).strip():
+                    text += str(testo)
+                out[cig] = text[:max_chars_per_cig]
+            if len(out) >= len(target):
+                break
+    except Exception:
+        return out
+    return out
+
+def extract_duration_snippets(text: str, max_snippets: int = 10, window: int = 280) -> tuple[list[str], list[str]]:
+    """Extract relevant snippets and candidate URLs from text."""
+    if not text:
+        return [], []
+    t = str(text)
+
+    urls = []
+    for m in _URL_RE.finditer(t):
+        u = m.group(1).strip().rstrip(').,;\'"')
+        if u.lower().startswith('www.'):
+            u = 'https://' + u
+        urls.append(u)
+    # de-dup preserving order
+    seen = set()
+    urls_unique = []
+    for u in urls:
+        if u not in seen:
+            seen.add(u)
+            urls_unique.append(u)
+
+    snippets = []
+    for m in _DURATION_KEYWORDS_RE.finditer(t):
+        start = max(0, m.start() - window)
+        end = min(len(t), m.end() + window)
+        snip = t[start:end].replace('\n', ' ').strip()
+        if snip and snip not in snippets:
+            snippets.append(snip)
+        if len(snippets) >= max_snippets:
+            break
+
+    if not snippets:
+        head = t[:2500].replace('\n', ' ').strip()
+        if head:
+            snippets = [head]
+    return snippets[:max_snippets], urls_unique[:10]
+
+def _safe_extract_text_from_html(html: str) -> str:
+    if not html:
+        return ""
+    try:
+        from bs4 import BeautifulSoup  # type: ignore
+        soup = BeautifulSoup(html, "html.parser")
+        for tag in soup(["script", "style", "noscript"]):
+            tag.decompose()
+        return soup.get_text(separator=" ", strip=True)
+    except Exception:
+        # Basic fallback: remove tags
+        return re.sub(r'<[^>]+>', ' ', html)
+
+def _safe_extract_text_from_pdf_bytes(pdf_bytes: bytes) -> str:
+    if not pdf_bytes:
+        return ""
+    try:
+        from pypdf import PdfReader  # type: ignore
+        import io
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+        parts = []
+        for page in reader.pages[:10]:
+            parts.append(page.extract_text() or "")
+        return "\n".join(parts)
+    except Exception:
+        return ""
+
+def fetch_url_text_best_effort(url: str, timeout_s: int = 12, max_bytes: int = 5_000_000) -> tuple[str, str]:
+    """
+    Fetch a URL and extract text (HTML/PDF). Returns (text, error).
+    Best-effort: short timeouts, size cap, no exceptions.
+    """
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in {"http", "https"}:
+            return "", "unsupported_scheme"
+    except Exception:
+        return "", "invalid_url"
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Accept-Encoding": "gzip, deflate",
+        "Connection": "close",
+    }
+
+    try:
+        r = requests.get(url, headers=headers, timeout=timeout_s, stream=True)
+        ct = (r.headers.get("content-type") or "").lower()
+        content = b""
+        for chunk in r.iter_content(chunk_size=65536):
+            if not chunk:
+                continue
+            content += chunk
+            if len(content) > max_bytes:
+                return "", "size_cap_exceeded"
+
+        if "application/pdf" in ct or url.lower().endswith(".pdf"):
+            text = _safe_extract_text_from_pdf_bytes(content)
+            return text, ""
+        html = content.decode(r.encoding or "utf-8", errors="ignore")
+        text = _safe_extract_text_from_html(html)
+        return text, ""
+    except Exception as e:
+        return "", f"fetch_error:{type(e).__name__}"
+
+def call_responses_api_structured(model: str, prompt: str, instructions: str, json_schema: dict) -> dict:
+    """Call OpenAI Responses API requesting strict JSON schema output."""
+    api_key = get_openai_api_key()
+    if not api_key:
+        return {"error": "Missing OPENAI_API_KEY"}
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}",
+    }
+
+    payload = {
+        "model": model,
+        "input": prompt,
+        "instructions": instructions,
+        "text": {
+            "format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "cig_enrichment",
+                    "schema": json_schema,
+                    "strict": True,
+                },
+            }
+        },
+    }
+
+    try:
+        response = requests.post(
+            "https://api.openai.com/v1/responses",
+            headers=headers,
+            json=payload,
+            timeout=90,
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        # Prefer output_json if present
+        if isinstance(data, dict) and "output" in data:
+            for item in data["output"]:
+                if item.get("type") != "message":
+                    continue
+                for content in item.get("content", []):
+                    if content.get("type") == "output_json" and isinstance(content.get("json"), dict):
+                        return content["json"]
+                    if content.get("type") == "output_text":
+                        text = content.get("text", "")
+                        try:
+                            return json.loads(text)
+                        except Exception:
+                            return {"error": "Invalid JSON output", "raw": text}
+        return {"error": "No structured output"}
+    except Exception as e:
+        return {"error": f"API error: {type(e).__name__}: {str(e)}"}
+
+def _duration_to_days(value, unit):
+    if value is None or unit is None:
+        return None
+    try:
+        v = float(value)
+    except Exception:
+        return None
+    u = str(unit).lower().strip()
+    if u in {"day", "days", "giorno", "giorni"}:
+        return int(round(v))
+    if u in {"month", "months", "mese", "mesi"}:
+        return int(round(v * 30))
+    if u in {"year", "years", "anno", "anni"}:
+        return int(round(v * 365))
+    return None
+
+def _add_duration(start_dt: pd.Timestamp, value, unit: str) -> pd.Timestamp:
+    u = str(unit).lower().strip()
+    if u in {"day", "days", "giorno", "giorni"}:
+        return start_dt + pd.to_timedelta(float(value), unit="D")
+    if u in {"month", "months", "mese", "mesi"}:
+        return start_dt + pd.DateOffset(months=int(round(float(value))))
+    if u in {"year", "years", "anno", "anni"}:
+        return start_dt + pd.DateOffset(years=int(round(float(value))))
+    return start_dt + pd.to_timedelta(float(value), unit="D")
+
+def enrich_cigs_via_llm(
+    cigs: list[str],
+    use_web: bool,
+    force: bool,
+    ttl_days: int = CIG_ENRICHMENT_TTL_DAYS_DEFAULT,
+    progress_cb=None,
+    save_every: int = 5,
+) -> tuple[dict, list[dict]]:
+    """
+    Enrich a list of CIGs using local text + gpt-5-nano (structured).
+    Returns (updated_cache, results_rows_for_ui).
+    """
+    cache = load_cig_enrichment_cache()
+    items = cache.setdefault("items", {})
+    now_iso = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    results = []
+
+    texts = load_testo_completo_for_cigs(set(cigs))
+
+    schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "duration_base": {
+                "type": ["object", "null"],
+                "additionalProperties": False,
+                "properties": {
+                    "value": {"type": "number"},
+                    "unit": {"type": "string", "enum": ["days", "months", "years"]},
+                },
+                "required": ["value", "unit"],
+            },
+            "duration_max": {
+                "type": ["object", "null"],
+                "additionalProperties": False,
+                "properties": {
+                    "value": {"type": "number"},
+                    "unit": {"type": "string", "enum": ["days", "months", "years"]},
+                },
+                "required": ["value", "unit"],
+            },
+            "explicit_start_date": {"type": ["string", "null"], "description": "YYYY-MM-DD"},
+            "explicit_end_date": {"type": ["string", "null"], "description": "YYYY-MM-DD"},
+            "start_event": {"type": "string", "enum": ["aggiudicazione", "stipula", "consegna", "decorrenza", "unknown"]},
+            "renewal_mentioned": {"type": "boolean"},
+            "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+            "evidence_snippets": {"type": "array", "items": {"type": "string"}, "maxItems": 3},
+            "notes": {"type": "string"},
+        },
+        "required": [
+            "duration_base",
+            "duration_max",
+            "explicit_start_date",
+            "explicit_end_date",
+            "start_event",
+            "renewal_mentioned",
+            "confidence",
+            "evidence_snippets",
+            "notes",
+        ],
+    }
+
+    instructions = (
+        "Sei un analista di contratti pubblici. Devi estrarre durata e date SOLO se presenti nel testo fornito.\n"
+        "Regole:\n"
+        "- Non inventare mai date o durate.\n"
+        "- Se trovi termini come 'quinquennale', 'triennale', 'biennale' traduci in anni (5/3/2).\n"
+        "- Se trovi 'per 36 mesi' traduci in months=36.\n"
+        "- duration_base = durata del periodo iniziale.\n"
+        "- duration_max = durata massima includendo opzioni di rinnovo/proroga SOLO se il testo le quantifica.\n"
+        "- Se c'è 'proroga tecnica' senza durata, metti renewal_mentioned=true ma duration_max=null.\n"
+        "- explicit_start_date e explicit_end_date solo se esplicite in formato chiaro; altrimenti null.\n"
+        "- start_event scegli tra aggiudicazione/stipula/consegna/decorrenza/unknown in base al contesto.\n"
+        "- evidence_snippets: max 3 frammenti brevi dal testo (non più di ~200 caratteri ciascuno).\n"
+        "- confidence 0..1 in base a chiarezza e coerenza.\n"
+        "Rispondi SOLO con JSON conforme allo schema."
+    )
+
+    total = len(cigs)
+    processed = 0
+    for cig in cigs:
+        cig_n = _normalize_cig(cig)
+        if not _is_valid_cig(cig_n):
+            continue
+
+        existing = items.get(cig_n, {})
+        updated_at = existing.get("updated_at")
+        input_hash_old = existing.get("input_hash")
+
+        text = texts.get(cig_n, "")
+        snippets, urls = extract_duration_snippets(text)
+
+        web_sources = []
+        if use_web and urls:
+            for u in urls[:2]:
+                fetched, err = fetch_url_text_best_effort(u)
+                if fetched:
+                    sn2, _ = extract_duration_snippets(fetched)
+                    snippets.extend([s for s in sn2 if s not in snippets])
+                    web_sources.append({"type": "url", "url": u})
+                else:
+                    web_sources.append({"type": "url", "url": u, "error": err})
+
+        # Build input hash
+        joined = "\n".join(snippets[:12])
+        input_hash = hashlib.sha256(joined.encode("utf-8", errors="ignore")).hexdigest()
+
+        # TTL check
+        fresh_enough = False
+        if updated_at and not force and input_hash_old == input_hash:
+            try:
+                ts = pd.to_datetime(updated_at, utc=True, errors="coerce")
+                if ts is not pd.NaT:
+                    age_days = (pd.Timestamp.utcnow() - ts).days
+                    fresh_enough = age_days <= int(ttl_days)
+            except Exception:
+                fresh_enough = False
+
+        if fresh_enough and existing.get("result"):
+            res = existing["result"]
+            results.append({
+                "cig": cig_n,
+                "status": "cached",
+                "confidence": res.get("confidence"),
+                "duration_base_days": res.get("duration_base_days"),
+                "duration_max_days": res.get("duration_max_days"),
+                "explicit_start_date": res.get("explicit_start_date"),
+                "explicit_end_date": res.get("explicit_end_date"),
+                "notes": res.get("notes", ""),
+            })
+            processed += 1
+            if progress_cb:
+                progress_cb(processed, total, cig_n, "cached")
+            continue
+
+        if not snippets:
+            items[cig_n] = {
+                "updated_at": now_iso,
+                "model": "gpt-5-nano",
+                "input_hash": input_hash,
+                "result": {
+                    "duration_base_days": None,
+                    "duration_max_days": None,
+                    "explicit_start_date": None,
+                    "explicit_end_date": None,
+                    "start_event": "unknown",
+                    "renewal_mentioned": False,
+                    "confidence": 0.0,
+                    "evidence": [],
+                    "sources": [{"type": "local_text"}],
+                    "notes": "Testo insufficiente per estrarre durata/scadenza.",
+                },
+                "errors": ["no_snippets"],
+            }
+            results.append({"cig": cig_n, "status": "no_text", "confidence": 0.0, "notes": "no snippets"})
+            processed += 1
+            if progress_cb:
+                progress_cb(processed, total, cig_n, "no_text")
+            if save_every and processed % int(save_every) == 0:
+                cache["items"] = items
+                save_cig_enrichment_cache(cache)
+            continue
+
+        prompt = (
+            f"CIG: {cig_n}\n"
+            "Ecco frammenti di testo (snippets) da cui estrarre durata/date:\n"
+            + "\n\n".join([f"- {s}" for s in snippets[:12]])
+        )
+
+        # Retry with exponential backoff for transient errors
+        last = None
+        for attempt in range(3):
+            last = call_responses_api_structured("gpt-5-nano", prompt, instructions, schema)
+            if isinstance(last, dict) and not last.get("error"):
+                break
+            time.sleep(1.5 * (2 ** attempt))
+
+        if not isinstance(last, dict) or last.get("error"):
+            items[cig_n] = {
+                "updated_at": now_iso,
+                "model": "gpt-5-nano",
+                "input_hash": input_hash,
+                "result": None,
+                "errors": [last.get("error") if isinstance(last, dict) else "unknown_error"],
+            }
+            results.append({"cig": cig_n, "status": "error", "confidence": None, "notes": str(last)})
+            processed += 1
+            if progress_cb:
+                progress_cb(processed, total, cig_n, "error")
+            if save_every and processed % int(save_every) == 0:
+                cache["items"] = items
+                save_cig_enrichment_cache(cache)
+            continue
+
+        # Normalize into cache result
+        duration_base = last.get("duration_base")
+        duration_max = last.get("duration_max")
+        base_days = _duration_to_days(duration_base.get("value"), duration_base.get("unit")) if isinstance(duration_base, dict) else None
+        max_days = _duration_to_days(duration_max.get("value"), duration_max.get("unit")) if isinstance(duration_max, dict) else None
+
+        evidence = last.get("evidence_snippets") if isinstance(last.get("evidence_snippets"), list) else []
+        evidence = [str(x)[:250] for x in evidence][:3]
+
+        result_obj = {
+            "duration_base_days": base_days,
+            "duration_max_days": max_days,
+            "explicit_start_date": last.get("explicit_start_date"),
+            "explicit_end_date": last.get("explicit_end_date"),
+            "start_event": last.get("start_event", "unknown"),
+            "renewal_mentioned": bool(last.get("renewal_mentioned", False)),
+            "confidence": float(last.get("confidence", 0.0)) if last.get("confidence") is not None else 0.0,
+            "evidence": evidence,
+            "sources": [{"type": "local_text"}] + web_sources,
+            "notes": str(last.get("notes", ""))[:500],
+        }
+
+        items[cig_n] = {
+            "updated_at": now_iso,
+            "model": "gpt-5-nano",
+            "input_hash": input_hash,
+            "result": result_obj,
+            "errors": [],
+        }
+
+        results.append({
+            "cig": cig_n,
+            "status": "ok",
+            "confidence": result_obj["confidence"],
+            "duration_base_days": base_days,
+            "duration_max_days": max_days,
+            "explicit_start_date": result_obj["explicit_start_date"],
+            "explicit_end_date": result_obj["explicit_end_date"],
+            "notes": result_obj["notes"],
+        })
+        processed += 1
+        if progress_cb:
+            progress_cb(processed, total, cig_n, "ok")
+        if save_every and processed % int(save_every) == 0:
+            cache["items"] = items
+            save_cig_enrichment_cache(cache)
+
+    cache["items"] = items
+    save_cig_enrichment_cache(cache)
+    return cache, results
 
 def load_favorites():
     """Load saved favorite charts"""
@@ -3746,7 +4286,7 @@ if tab11:
         })
         return out
 
-    def _compute_scadenze_contratti(df_base: pd.DataFrame, consip_map: pd.DataFrame, include_stime: bool) -> pd.DataFrame:
+    def _compute_scadenze_contratti(df_base: pd.DataFrame, consip_map: pd.DataFrame, include_stime: bool, cig_enrichment_items=None) -> pd.DataFrame:
         if df_base is None or len(df_base) == 0:
             return pd.DataFrame()
 
@@ -3805,7 +4345,57 @@ if tab11:
             d['durata_giorni_dataset'] = np.nan
         d['scadenza_da_durata_appalto'] = d['award_date'] + pd.to_timedelta(d['durata_giorni_dataset'], unit='D')
 
-        # (4) stima da categoria (fallback)
+        # (4) enrichment LLM (da cache) - scadenza base/max se disponibili
+        d['scadenza_base_llm'] = pd.NaT
+        d['scadenza_max_llm'] = pd.NaT
+        d['llm_confidence'] = np.nan
+        d['llm_notes'] = ''
+
+        if cig_enrichment_items and isinstance(cig_enrichment_items, dict) and d['cig'].notna().any():
+            present = set(d['cig'].fillna('').astype(str).str.strip().tolist())
+            rows = []
+            for cig_key in present:
+                item = cig_enrichment_items.get(cig_key)
+                if not item or not isinstance(item, dict):
+                    continue
+                res = item.get('result')
+                if not isinstance(res, dict):
+                    continue
+                rows.append({
+                    'cig': cig_key,
+                    'llm_duration_base_days': res.get('duration_base_days'),
+                    'llm_duration_max_days': res.get('duration_max_days'),
+                    'llm_explicit_start_date': res.get('explicit_start_date'),
+                    'llm_explicit_end_date': res.get('explicit_end_date'),
+                    'llm_confidence_cache': res.get('confidence'),
+                    'llm_notes_cache': res.get('notes', ''),
+                })
+            if rows:
+                llm_df = pd.DataFrame(rows)
+                llm_df['llm_duration_base_days'] = pd.to_numeric(llm_df['llm_duration_base_days'], errors='coerce')
+                llm_df['llm_duration_max_days'] = pd.to_numeric(llm_df['llm_duration_max_days'], errors='coerce')
+                llm_df['llm_explicit_start_dt'] = pd.to_datetime(llm_df['llm_explicit_start_date'], errors='coerce')
+                llm_df['llm_explicit_end_dt'] = pd.to_datetime(llm_df['llm_explicit_end_date'], errors='coerce')
+                d = d.merge(
+                    llm_df[['cig', 'llm_duration_base_days', 'llm_duration_max_days', 'llm_explicit_start_dt', 'llm_explicit_end_dt', 'llm_confidence_cache', 'llm_notes_cache']],
+                    on='cig',
+                    how='left'
+                )
+
+                start_llm = d['llm_explicit_start_dt'].fillna(d['award_date'])
+                d['scadenza_base_llm'] = d['llm_explicit_end_dt']
+                d.loc[d['scadenza_base_llm'].isna() & start_llm.notna() & d['llm_duration_base_days'].notna(),
+                      'scadenza_base_llm'] = start_llm + pd.to_timedelta(d['llm_duration_base_days'], unit='D')
+                d.loc[start_llm.notna() & d['llm_duration_max_days'].notna(),
+                      'scadenza_max_llm'] = start_llm + pd.to_timedelta(d['llm_duration_max_days'], unit='D')
+
+                # Propaga campi UI-friendly
+                if 'llm_confidence_cache' in d.columns:
+                    d['llm_confidence'] = pd.to_numeric(d['llm_confidence_cache'], errors='coerce')
+                if 'llm_notes_cache' in d.columns:
+                    d['llm_notes'] = d['llm_notes_cache'].fillna('').astype(str)
+
+        # (5) stima da categoria (fallback)
         if include_stime:
             durate_stimate = {
                 'Servizio Luce': 9,
@@ -3845,6 +4435,7 @@ if tab11:
             d['scadenza_da_data_scadenza']
             .fillna(d['scadenza_consip'])
             .fillna(d['scadenza_da_durata_appalto'])
+            .fillna(d['scadenza_base_llm'])
             .fillna(d['scadenza_stimata'])
         )
 
@@ -3854,12 +4445,14 @@ if tab11:
                 d['scadenza_da_data_scadenza'].notna(),
                 d['scadenza_consip'].notna(),
                 d['scadenza_da_durata_appalto'].notna(),
+                d['scadenza_base_llm'].notna(),
                 d['scadenza_stimata'].notna()
             ],
             [
                 'data_scadenza',
                 'consip',
                 'durata_appalto',
+                'llm',
                 'stima_categoria'
             ],
             default='mancante'
@@ -3872,8 +4465,15 @@ if tab11:
         d.loc[invalid, 'scadenza_contratto'] = pd.NaT
         d.loc[invalid, 'scadenza_fonte'] = 'invalid'
 
+        # Scadenza max (solo se stimata da LLM con rinnovi/proroghe quantificate)
+        d['scadenza_contratto_max'] = d['scadenza_max_llm']
+        year_max = d['scadenza_contratto_max'].dt.year
+        invalid_max = d['scadenza_contratto_max'].notna() & ((year_max < 2000) | (year_max > max_year))
+        d.loc[invalid_max, 'scadenza_contratto_max'] = pd.NaT
+
         oggi_ts = pd.Timestamp.now().normalize()
         d['giorni_alla_scadenza'] = (d['scadenza_contratto'] - oggi_ts).dt.days
+        d['giorni_alla_scadenza_max'] = (d['scadenza_contratto_max'] - oggi_ts).dt.days
         d['stato_scadenza'] = np.select(
             [d['scadenza_contratto'].isna(), d['giorni_alla_scadenza'] < 0],
             ['Sconosciuta', 'Scaduto'],
@@ -3888,9 +4488,95 @@ if tab11:
 
     consip_map_scadenze = _build_consip_scadenza_map(consip_exp)
 
+    # ==================== ENRICHMENT AUTOMATICO (CIG) ====================
+    cig_cache = load_cig_enrichment_cache()
+    cig_cache_items = cig_cache.get("items", {}) if isinstance(cig_cache, dict) else {}
+
+    st.subheader("✨ Enrichment automatico (CIG)")
+    with st.expander("Configura ed esegui enrichment (LLM gpt-5-nano)", expanded=False):
+        enable_llm = st.checkbox("Abilita enrichment LLM", value=False, key="cig_enrich_enable")
+        use_web = st.checkbox("Abilita fallback web (solo URL nel testo)", value=False, key="cig_enrich_web")
+        batch_size = st.selectbox("Batch per click", [50, 200, 1000], index=0, key="cig_enrich_batch")
+        only_missing = st.checkbox("Solo scadenze mancanti/invalid", value=True, key="cig_enrich_only_missing")
+        force_refresh = st.checkbox("Forza refresh cache", value=False, key="cig_enrich_force")
+        ttl_days = st.number_input("TTL cache (giorni)", min_value=1, max_value=365, value=CIG_ENRICHMENT_TTL_DAYS_DEFAULT, key="cig_enrich_ttl")
+        manual_cigs = st.text_input("CIG manuali (separati da virgola/spazio, opzionale)", value="", key="cig_enrich_manual")
+
+        if enable_llm:
+            if not get_openai_api_key():
+                st.warning("⚠️ OPENAI_API_KEY mancante: inseriscila nella sidebar (o nel .env) per usare l’enrichment.")
+            # Calcola candidati (senza stime) per evitare di “nascondere” mancanze reali
+            df_for_candidates = _compute_scadenze_contratti(
+                filtered_df,
+                consip_map_scadenze,
+                include_stime=False,
+                cig_enrichment_items=cig_cache_items
+            )
+            candidates = []
+            if df_for_candidates is not None and len(df_for_candidates) > 0:
+                base_mask = df_for_candidates['cig'].fillna('').astype(str).str.strip().apply(_is_valid_cig)
+                if only_missing:
+                    miss = df_for_candidates['scadenza_contratto'].isna() | df_for_candidates['scadenza_fonte'].isin(['mancante', 'invalid'])
+                else:
+                    miss = pd.Series([True] * len(df_for_candidates))
+                candidates = (
+                    df_for_candidates.loc[base_mask & miss, 'cig']
+                    .dropna()
+                    .astype(str)
+                    .str.strip()
+                    .str.upper()
+                    .unique()
+                    .tolist()
+                )
+                candidates.sort()
+
+            st.caption(f"Candidati (stimati): {len(candidates):,}".replace(",", "."))
+
+            run_btn = st.button("Esegui enrichment", key="cig_enrich_run")
+            if run_btn:
+                if not get_openai_api_key():
+                    st.error("OPENAI_API_KEY mancante: impossibile chiamare gpt-5-nano.")
+                else:
+                    # Manual CIGs override (se forniti)
+                    manual_list = []
+                    if manual_cigs.strip():
+                        manual_list = re.split(r"[\\s,;]+", manual_cigs.strip())
+                        manual_list = [_normalize_cig(c) for c in manual_list if _is_valid_cig(c)]
+
+                    cigs_to_run = manual_list if manual_list else candidates[: int(batch_size)]
+                    if not cigs_to_run:
+                        st.info("Nessun CIG da processare con i filtri attuali.")
+                    else:
+                        prog = st.progress(0)
+                        status_box = st.empty()
+
+                        def _cb(done, total, cig_now, status):
+                            try:
+                                prog.progress(min(1.0, done / max(1, total)))
+                            except Exception:
+                                pass
+                            status_box.write(f"{done}/{total} - {cig_now} - {status}")
+
+                        updated_cache, results_rows = enrich_cigs_via_llm(
+                            cigs_to_run,
+                            use_web=use_web,
+                            force=force_refresh,
+                            ttl_days=int(ttl_days),
+                            progress_cb=_cb,
+                            save_every=5,
+                        )
+                        cig_cache_items = updated_cache.get("items", {}) if isinstance(updated_cache, dict) else cig_cache_items
+                        prog.progress(1.0)
+                        status_box.write("Completato.")
+
+                        if results_rows:
+                            res_df = pd.DataFrame(results_rows)
+                            st.dataframe(safe_dataframe(res_df), width="stretch", hide_index=True)
+                        st.success("✅ Enrichment completato: cache aggiornata.")
+
     # ==================== VISTA TERRITORIALE: ATTIVI + SCADENZE ====================
     st.subheader("🧭 Contratti attivi per città/area e scadenza")
-    st.caption("Scadenza calcolata con priorità: `data_scadenza` → CONSIP → `durata_appalto` → stima per categoria (se abilitata).")
+    st.caption("Scadenza calcolata con priorità: `data_scadenza` → CONSIP → `durata_appalto` → LLM (gpt-5-nano via cache) → stima per categoria (se abilitata). Scadenza max mostrata solo se il testo cita rinnovi/proroghe quantificate.")
 
     col_cfg1, col_cfg2, col_cfg3 = st.columns([2, 2, 2])
     with col_cfg1:
@@ -3900,7 +4586,7 @@ if tab11:
     with col_cfg3:
         solo_attivi = st.checkbox("Solo contratti attivi", value=True, key="scad_solo_attivi")
 
-    df_scad = _compute_scadenze_contratti(filtered_df, consip_map_scadenze, include_stime=include_stime)
+    df_scad = _compute_scadenze_contratti(filtered_df, consip_map_scadenze, include_stime=include_stime, cig_enrichment_items=cig_cache_items)
 
     if df_scad is None or len(df_scad) == 0:
         st.info("Dati insufficienti per calcolare le scadenze con i filtri correnti.")
@@ -3944,6 +4630,8 @@ if tab11:
 
                 prossima = base_future.groupby(group_col, observed=True)['scadenza_contratto'].min().reset_index()
                 prossima = prossima.rename(columns={'scadenza_contratto': 'prossima_scadenza'})
+                prossima_max = base_future.groupby(group_col, observed=True)['scadenza_contratto_max'].min().reset_index()
+                prossima_max = prossima_max.rename(columns={'scadenza_contratto_max': 'prossima_scadenza_max'})
 
                 entro_counts = base_entro.groupby(group_col, observed=True).agg(
                     scadenze_entro_orizzonte=(id_col, 'nunique'),
@@ -3955,6 +4643,7 @@ if tab11:
                     scadenze_12m=('giorni_alla_scadenza', lambda s: ((s >= 0) & (s <= 365)).sum()),
                 ).reset_index()
                 summary = summary.merge(prossima, on=group_col, how='left')
+                summary = summary.merge(prossima_max, on=group_col, how='left')
                 summary = summary.merge(entro_counts, on=group_col, how='left')
                 summary['scadenze_entro_orizzonte'] = summary['scadenze_entro_orizzonte'].fillna(0).astype(int)
                 summary['giorni_alla_prossima_scadenza'] = (summary['prossima_scadenza'] - pd.Timestamp.now().normalize()).dt.days
@@ -3980,12 +4669,14 @@ if tab11:
                     # Tabella
                     display = summary.copy()
                     display['prossima_scadenza'] = display['prossima_scadenza'].dt.strftime('%d/%m/%Y')
+                    display['prossima_scadenza_max'] = display['prossima_scadenza_max'].dt.strftime('%d/%m/%Y')
                     display['valore'] = display['valore'].apply(lambda x: f"€{x/1e6:.1f}M" if pd.notna(x) else "-")
                     display.columns = [
                         raggruppa,
                         'Contratti',
                         'Valore',
-                        'Prossima Scadenza',
+                        'Prossima Scadenza (base)',
+                        'Prossima Scadenza (max)',
                         'Scadenze 12M',
                         f"Scadenze entro {max_anni}a",
                         'Giorni a prossima scadenza'
@@ -4008,7 +4699,7 @@ if tab11:
                     dettaglio = dettaglio.sort_values('scadenza_contratto', ascending=True)
 
                     cols_det = []
-                    for c in ['scadenza_contratto', 'giorni_alla_scadenza', 'scadenza_fonte', 'cig', 'buyer_name', 'supplier_name', '_categoria', 'award_amount', 'award_date', 'anac_url']:
+                    for c in ['scadenza_contratto', 'scadenza_contratto_max', 'giorni_alla_scadenza', 'scadenza_fonte', 'llm_confidence', 'llm_notes', 'cig', 'buyer_name', 'supplier_name', '_categoria', 'award_amount', 'award_date', 'anac_url']:
                         if c in dettaglio.columns:
                             cols_det.append(c)
 
@@ -4020,10 +4711,19 @@ if tab11:
                             det['award_date'] = det['award_date'].dt.strftime('%d/%m/%Y')
                         if 'scadenza_contratto' in det.columns:
                             det['scadenza_contratto'] = det['scadenza_contratto'].dt.strftime('%d/%m/%Y')
+                        if 'scadenza_contratto_max' in det.columns:
+                            det['scadenza_contratto_max'] = det['scadenza_contratto_max'].dt.strftime('%d/%m/%Y')
+                        if 'llm_confidence' in det.columns:
+                            det['llm_confidence'] = pd.to_numeric(det['llm_confidence'], errors='coerce').round(2)
+                        if 'llm_notes' in det.columns:
+                            det['llm_notes'] = det['llm_notes'].apply(lambda x: str(x)[:120] if pd.notna(x) else '')
                         det = det.rename(columns={
-                            'scadenza_contratto': 'Scadenza',
+                            'scadenza_contratto': 'Scadenza (base)',
+                            'scadenza_contratto_max': 'Scadenza (max)',
                             'giorni_alla_scadenza': 'Giorni alla scadenza',
                             'scadenza_fonte': 'Fonte scadenza',
+                            'llm_confidence': 'Confidence LLM',
+                            'llm_notes': 'Note LLM',
                             'cig': 'CIG',
                             'buyer_name': 'Ente',
                             'supplier_name': 'Aggiudicatario',
