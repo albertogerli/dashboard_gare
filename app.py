@@ -7,6 +7,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import plotly.io as pio
 from plotly.subplots import make_subplots
 import json
 from pathlib import Path
@@ -84,9 +85,60 @@ def safe_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     return df_copy
 
 
-def show_dataframe(df: pd.DataFrame, **kwargs):
-    """Streamlit dataframe rendering with Arrow-safe normalization."""
-    return st.dataframe(safe_dataframe(df), **kwargs)
+def show_dataframe(df: pd.DataFrame, label: str | None = None, preview_rows: int = 50, **kwargs):
+    """Render a DataFrame without crashing the app (Arrow/pyarrow fail-safe).
+
+    Streamlit serializes DataFrames through Arrow; in production this can sporadically fail
+    (mixed dtypes, nested objects, tz-aware datetimes, etc.) and crash the script.
+    This helper tries progressively safer fallbacks and logs enough context to debug.
+    """
+    try:
+        return st.dataframe(safe_dataframe(df), **kwargs)
+    except Exception as e1:
+        tag = f"`{label}`" if label else "(senza label)"
+        st.warning(f"⚠️ Tabella non renderizzabile via Arrow {tag}. Uso fallback (preview).")
+
+        with st.expander("Dettagli errore tabella (debug)", expanded=False):
+            st.write("Errore Arrow/Streamlit durante rendering DataFrame.")
+            st.exception(e1)
+            try:
+                if df is not None:
+                    st.write({"shape": getattr(df, "shape", None)})
+                    st.write("dtypes:")
+                    st.code(getattr(df, "dtypes", None).to_string() if hasattr(df, "dtypes") else "N/A")
+                    st.write("preview (prime righe):")
+                    st.code(df.head(3).to_string())
+            except Exception:
+                pass
+
+        try:
+            df_preview = df.head(int(preview_rows)).copy() if df is not None else pd.DataFrame()
+            for c in df_preview.columns:
+                df_preview[c] = df_preview[c].astype(str)
+            return st.dataframe(df_preview, **kwargs)
+        except Exception as e2:
+            st.error("❌ Anche il fallback DataFrame è fallito. Mostro output testuale.")
+            with st.expander("Dettagli fallback (debug)", expanded=False):
+                st.exception(e2)
+
+            try:
+                df_preview = df.head(int(preview_rows)).copy() if df is not None else pd.DataFrame()
+                st.code(df_preview.to_string())
+            except Exception:
+                st.code("(impossibile generare preview)")
+
+            try:
+                if df is not None and len(df) <= 200_000 and df.shape[1] <= 200:
+                    csv_bytes = df.to_csv(index=False).encode("utf-8")
+                    st.download_button(
+                        "📥 Scarica CSV (debug)",
+                        data=csv_bytes,
+                        file_name=f"{(label or 'dataframe')}.csv",
+                        mime="text/csv",
+                    )
+            except Exception:
+                pass
+            return None
 
 
 # Carica variabili d'ambiente dal file .env
@@ -100,187 +152,238 @@ st.set_page_config(
     layout="wide"
 )
 
-# City Green Light Corporate Colors
-CGL_GREEN = "#00d084"  # Verde principale
-CGL_BLUE = "#2ea3f2"   # Blu accent
-CGL_CYAN = "#0693e3"   # Cyan secondario
-CGL_ORANGE = "#ff9500" # Arancione per trend
-CGL_RED = "#ff3b30"    # Rosso per warning
-CGL_DARK = "#1a1a2e"   # Scuro per sfondo
+# Brand colors (manual)
+BRAND_BLUE = "#34657F"       # Blu primario
+BRAND_GREEN = "#26D07C"      # Verde primario (CTA)
+BRAND_DEEP = "#06415B"       # Deep Lagoon
+BRAND_CLEAR = "#B9D7D8"      # Clear Water
+BRAND_SURFACE = "#EDF6F6"    # Tint derivata (leggibile su bianco)
+
+# UI semantic colors
+CGL_GREEN = BRAND_GREEN
+CGL_BLUE = BRAND_BLUE
+CGL_CYAN = BRAND_CLEAR
+CGL_DARK = BRAND_DEEP
 CGL_BLACK = "#000000"
 CGL_WHITE = "#ffffff"
+CGL_ORANGE = "#ff9500"  # warning/attenzione (non brand)
+CGL_RED = "#ff3b30"     # error (non brand)
 
-# Custom CSS - City Green Light Theme + Accessibilità
-st.markdown("""
+# Plotly defaults (brand)
+BRAND_COLORWAY = [
+    BRAND_GREEN,
+    BRAND_BLUE,
+    BRAND_DEEP,
+    BRAND_CLEAR,
+    "#1FAE8A",  # teal (derivata)
+    "#0B6B8C",  # deep blue (derivata)
+    "#7EC9C9",  # light teal (derivata)
+    "#A8E8CA",  # light green (derivata)
+]
+BRAND_GRID_RGBA = "rgba(185,215,216,0.35)"  # BRAND_CLEAR con alpha
+BRAND_CONTINUOUS_SCALE = [BRAND_SURFACE, BRAND_CLEAR, BRAND_BLUE, BRAND_DEEP]
+
+pio.templates["brand_manual"] = go.layout.Template(
+    layout=go.Layout(
+        colorway=BRAND_COLORWAY,
+        font=dict(color=BRAND_DEEP, family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"),
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        hoverlabel=dict(bgcolor="white", font=dict(color=BRAND_DEEP)),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+        xaxis=dict(gridcolor=BRAND_GRID_RGBA, zerolinecolor=BRAND_GRID_RGBA, linecolor=BRAND_GRID_RGBA),
+        yaxis=dict(gridcolor=BRAND_GRID_RGBA, zerolinecolor=BRAND_GRID_RGBA, linecolor=BRAND_GRID_RGBA),
+    )
+)
+pio.templates.default = "brand_manual"
+px.defaults.template = "brand_manual"
+px.defaults.color_discrete_sequence = BRAND_COLORWAY
+px.defaults.color_continuous_scale = BRAND_CONTINUOUS_SCALE
+
+# Custom CSS - Brand manual + Accessibilità
+st.markdown(f"""
 <style>
-    /* Import Google Fonts per accessibilità */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Sans+Pro:wght@400;600;700&display=swap');
 
-    /* Reset e base accessibile */
-    html, body, [class*="css"] {
+    :root {{
+        --brand-blue: {BRAND_BLUE};
+        --brand-green: {BRAND_GREEN};
+        --brand-deep: {BRAND_DEEP};
+        --brand-clear: {BRAND_CLEAR};
+        --brand-surface: {BRAND_SURFACE};
+        --brand-text: {BRAND_DEEP};
+        --brand-text-invert: #FFFFFF;
+        --brand-border: rgba(185, 215, 216, 0.7);
+        --brand-shadow: rgba(6, 65, 91, 0.10);
+    }}
+
+    html, body, [class*="css"] {{
         font-family: 'Inter', 'Source Sans Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 16px;
         line-height: 1.6;
-    }
+        color: var(--brand-text);
+    }}
 
-    /* Titoli accessibili con buon contrasto */
-    h1, h2, h3, h4, h5, h6 {
+    h1, h2, h3, h4, h5, h6 {{
         font-family: 'Inter', sans-serif;
         font-weight: 600;
-        color: #1a1a2e;
-        line-height: 1.3;
-    }
+        color: var(--brand-text);
+        line-height: 1.25;
+    }}
 
-    h1 { font-size: 2rem; }
-    h2 { font-size: 1.75rem; }
-    h3 { font-size: 1.5rem; }
-    h4 { font-size: 1.25rem; }
-
-    /* Metric cards con colori CGL */
-    .stMetric > div {
-        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    /* Metric cards */
+    .stMetric > div {{
+        background: linear-gradient(135deg, var(--brand-surface) 0%, #ffffff 100%);
         padding: 15px;
         border-radius: 12px;
-        border-left: 5px solid #00d084;
-        box-shadow: 0 2px 8px rgba(0, 208, 132, 0.1);
-    }
+        border-left: 6px solid var(--brand-green);
+        box-shadow: 0 2px 10px var(--brand-shadow);
+        border: 1px solid rgba(185, 215, 216, 0.35);
+    }}
 
-    .stMetric label {
+    .stMetric label {{
         font-size: 0.9rem !important;
         font-weight: 500 !important;
-        color: #4a5568 !important;
-    }
+        color: rgba(6, 65, 91, 0.75) !important;
+    }}
 
-    .stMetric [data-testid="stMetricValue"] {
+    .stMetric [data-testid="stMetricValue"] {{
         font-size: 1.8rem !important;
         font-weight: 700 !important;
-        color: #1a1a2e !important;
-    }
+        color: var(--brand-text) !important;
+    }}
 
-    /* Tabs styling CGL */
-    .stTabs [data-baseweb="tab-list"] {
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {{
         gap: 8px;
-        background-color: #f8f9fa;
+        background-color: var(--brand-surface);
         padding: 8px;
         border-radius: 10px;
-    }
+        border: 1px solid rgba(185, 215, 216, 0.55);
+    }}
 
-    .stTabs [data-baseweb="tab"] {
-        font-weight: 500;
-        font-size: 0.95rem;
-        padding: 10px 20px;
-        border-radius: 8px;
-        color: #4a5568;
-    }
-
-    .stTabs [aria-selected="true"] {
-        background-color: #00d084 !important;
-        color: white !important;
-    }
-
-    /* Sidebar styling */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
-    }
-
-    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {
-        color: #e2e8f0;
-    }
-
-    [data-testid="stSidebar"] label {
-        color: #e2e8f0 !important;
-        font-weight: 500;
-    }
-
-    /* Buttons CGL */
-    .stButton > button {
-        background: linear-gradient(135deg, #00d084 0%, #0693e3 100%);
-        color: white;
+    .stTabs [data-baseweb="tab"] {{
         font-weight: 600;
+        font-size: 0.95rem;
+        padding: 10px 18px;
+        border-radius: 8px;
+        color: rgba(6, 65, 91, 0.85);
+    }}
+
+    .stTabs [aria-selected="true"] {{
+        background-color: var(--brand-green) !important;
+        color: var(--brand-text-invert) !important;
+    }}
+
+    /* Sidebar */
+    [data-testid="stSidebar"] {{
+        background: linear-gradient(180deg, var(--brand-deep) 0%, #052F43 100%);
+    }}
+
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {{
+        color: rgba(255, 255, 255, 0.92);
+    }}
+
+    [data-testid="stSidebar"] label {{
+        color: rgba(255, 255, 255, 0.92) !important;
+        font-weight: 600;
+    }}
+
+    /* Buttons */
+    .stButton > button {{
+        background: linear-gradient(135deg, var(--brand-green) 0%, var(--brand-blue) 100%);
+        color: var(--brand-text-invert);
+        font-weight: 700;
         border: none;
-        border-radius: 8px;
-        padding: 10px 24px;
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
+        border-radius: 10px;
+        padding: 10px 20px;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+    }}
 
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 208, 132, 0.3);
-    }
+    .stButton > button:hover {{
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(6, 65, 91, 0.25);
+        filter: brightness(0.98);
+    }}
 
-    /* DataFrames e tabelle */
-    .stDataFrame {
-        font-size: 0.9rem;
-        border-radius: 8px;
-        overflow: hidden;
-    }
+    .stButton > button:active {{
+        transform: translateY(0px);
+        filter: brightness(0.96);
+    }}
 
-    /* Selectbox e inputs */
+    /* Inputs */
     .stSelectbox > div > div,
     .stMultiSelect > div > div,
-    .stTextInput > div > div {
-        border-radius: 8px;
-        border-color: #e2e8f0;
-    }
+    .stTextInput > div > div,
+    .stTextArea > div > div {{
+        border-radius: 10px;
+        border-color: var(--brand-border);
+    }}
 
     .stSelectbox > div > div:focus-within,
     .stMultiSelect > div > div:focus-within,
-    .stTextInput > div > div:focus-within {
-        border-color: #00d084;
-        box-shadow: 0 0 0 2px rgba(0, 208, 132, 0.2);
-    }
+    .stTextInput > div > div:focus-within,
+    .stTextArea > div > div:focus-within {{
+        border-color: var(--brand-green);
+        box-shadow: 0 0 0 2px rgba(38, 208, 124, 0.20);
+    }}
 
     /* Info/Warning/Error boxes */
-    .stAlert {
-        border-radius: 8px;
+    .stAlert {{
+        border-radius: 10px;
         font-size: 0.95rem;
-    }
+        border-color: rgba(185, 215, 216, 0.65);
+    }}
 
     /* Expander */
-    .streamlit-expanderHeader {
-        font-weight: 600;
-        color: #1a1a2e;
+    .streamlit-expanderHeader {{
+        font-weight: 700;
+        color: var(--brand-text);
         font-size: 1rem;
-    }
+    }}
 
-    /* Link accessibility */
-    a {
-        color: #2ea3f2;
+    /* Links */
+    a {{
+        color: var(--brand-blue);
         text-decoration: underline;
-    }
+        text-decoration-color: rgba(52, 101, 127, 0.45);
+    }}
 
-    a:hover {
-        color: #0693e3;
-    }
+    a:hover {{
+        color: var(--brand-deep);
+        text-decoration-color: rgba(6, 65, 91, 0.55);
+    }}
 
-    /* Focus states per accessibilità */
-    *:focus-visible {
-        outline: 3px solid #00d084;
+    /* Focus for accessibility */
+    *:focus-visible {{
+        outline: 3px solid var(--brand-green);
         outline-offset: 2px;
-    }
+    }}
 
-    /* Caption e small text */
-    .stCaption, small {
+    .stCaption, small {{
         font-size: 0.85rem;
-        color: #718096;
-    }
+        color: rgba(6, 65, 91, 0.70);
+    }}
 
     /* Download button */
-    .stDownloadButton > button {
-        background: #1a1a2e;
-        color: white;
-        border: 2px solid #00d084;
-    }
+    .stDownloadButton > button {{
+        background: var(--brand-deep);
+        color: var(--brand-text-invert);
+        border: 2px solid var(--brand-green);
+        border-radius: 10px;
+        font-weight: 700;
+    }}
 
-    .stDownloadButton > button:hover {
-        background: #00d084;
-    }
+    .stDownloadButton > button:hover {{
+        background: var(--brand-green);
+        color: var(--brand-deep);
+    }}
 
     /* Chart container */
-    [data-testid="stPlotlyChart"] {
+    [data-testid="stPlotlyChart"] {{
         border-radius: 12px;
         overflow: hidden;
-    }
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -4567,256 +4670,266 @@ if tab11:
 
     st.subheader("✨ Enrichment automatico (CIG)")
     with st.expander("Configura ed esegui enrichment (LLM gpt-5-nano)", expanded=False):
-        enable_llm = st.checkbox("Abilita enrichment LLM", value=False, key="cig_enrich_enable")
-        use_web = st.checkbox("Abilita fallback web (solo URL nel testo)", value=False, key="cig_enrich_web")
-        batch_size = st.selectbox("Batch per click", [50, 200, 1000], index=0, key="cig_enrich_batch")
-        only_missing = st.checkbox("Solo scadenze mancanti/invalid", value=True, key="cig_enrich_only_missing")
-        force_refresh = st.checkbox("Forza refresh cache", value=False, key="cig_enrich_force")
-        ttl_days = st.number_input("TTL cache (giorni)", min_value=1, max_value=365, value=CIG_ENRICHMENT_TTL_DAYS_DEFAULT, key="cig_enrich_ttl")
-        manual_cigs = st.text_input("CIG manuali (separati da virgola/spazio, opzionale)", value="", key="cig_enrich_manual")
+        try:
+            enable_llm = st.checkbox("Abilita enrichment LLM", value=False, key="cig_enrich_enable")
+            use_web = st.checkbox("Abilita fallback web (solo URL nel testo)", value=False, key="cig_enrich_web")
+            batch_size = st.selectbox("Batch per click", [50, 200, 1000], index=0, key="cig_enrich_batch")
+            only_missing = st.checkbox("Solo scadenze mancanti/invalid", value=True, key="cig_enrich_only_missing")
+            force_refresh = st.checkbox("Forza refresh cache", value=False, key="cig_enrich_force")
+            ttl_days = st.number_input("TTL cache (giorni)", min_value=1, max_value=365, value=CIG_ENRICHMENT_TTL_DAYS_DEFAULT, key="cig_enrich_ttl")
+            manual_cigs = st.text_input("CIG manuali (separati da virgola/spazio, opzionale)", value="", key="cig_enrich_manual")
 
-        if enable_llm:
-            if not get_openai_api_key():
-                st.warning("⚠️ OPENAI_API_KEY mancante: inseriscila nella sidebar (o nel .env) per usare l’enrichment.")
-            # Calcola candidati (senza stime) per evitare di “nascondere” mancanze reali
-            df_for_candidates = _compute_scadenze_contratti(
-                filtered_df,
-                consip_map_scadenze,
-                include_stime=False,
-                cig_enrichment_items=cig_cache_items
-            )
-            candidates = []
-            if df_for_candidates is not None and len(df_for_candidates) > 0:
-                base_mask = df_for_candidates['cig'].fillna('').astype(str).str.strip().apply(_is_valid_cig)
-                if only_missing:
-                    miss = df_for_candidates['scadenza_contratto'].isna() | df_for_candidates['scadenza_fonte'].isin(['mancante', 'invalid'])
-                else:
-                    miss = pd.Series([True] * len(df_for_candidates))
-                candidates = (
-                    df_for_candidates.loc[base_mask & miss, 'cig']
-                    .dropna()
-                    .astype(str)
-                    .str.strip()
-                    .str.upper()
-                    .unique()
-                    .tolist()
-                )
-                candidates.sort()
-
-            st.caption(f"Candidati (stimati): {len(candidates):,}".replace(",", "."))
-
-            run_btn = st.button("Esegui enrichment", key="cig_enrich_run")
-            if run_btn:
+            if enable_llm:
                 if not get_openai_api_key():
-                    st.error("OPENAI_API_KEY mancante: impossibile chiamare gpt-5-nano.")
-                else:
-                    # Manual CIGs override (se forniti)
-                    manual_list = []
-                    if manual_cigs.strip():
-                        manual_list = re.split(r"[\\s,;]+", manual_cigs.strip())
-                        manual_list = [_normalize_cig(c) for c in manual_list if _is_valid_cig(c)]
-
-                    cigs_to_run = manual_list if manual_list else candidates[: int(batch_size)]
-                    if not cigs_to_run:
-                        st.info("Nessun CIG da processare con i filtri attuali.")
+                    st.warning("⚠️ OPENAI_API_KEY mancante: inseriscila nella sidebar (o nel .env) per usare l’enrichment.")
+                # Calcola candidati (senza stime) per evitare di “nascondere” mancanze reali
+                df_for_candidates = _compute_scadenze_contratti(
+                    filtered_df,
+                    consip_map_scadenze,
+                    include_stime=False,
+                    cig_enrichment_items=cig_cache_items
+                )
+                candidates = []
+                if df_for_candidates is not None and len(df_for_candidates) > 0:
+                    base_mask = df_for_candidates['cig'].fillna('').astype(str).str.strip().apply(_is_valid_cig)
+                    if only_missing:
+                        miss = df_for_candidates['scadenza_contratto'].isna() | df_for_candidates['scadenza_fonte'].isin(['mancante', 'invalid'])
                     else:
-                        prog = st.progress(0)
-                        status_box = st.empty()
+                        miss = pd.Series([True] * len(df_for_candidates))
+                    candidates = (
+                        df_for_candidates.loc[base_mask & miss, 'cig']
+                        .dropna()
+                        .astype(str)
+                        .str.strip()
+                        .str.upper()
+                        .unique()
+                        .tolist()
+                    )
+                    candidates.sort()
 
-                        def _cb(done, total, cig_now, status):
-                            try:
-                                prog.progress(min(1.0, done / max(1, total)))
-                            except Exception:
-                                pass
-                            status_box.write(f"{done}/{total} - {cig_now} - {status}")
+                st.caption(f"Candidati (stimati): {len(candidates):,}".replace(",", "."))
 
-                        updated_cache, results_rows = enrich_cigs_via_llm(
-                            cigs_to_run,
-                            use_web=use_web,
-                            force=force_refresh,
-                            ttl_days=int(ttl_days),
-                            progress_cb=_cb,
-                            save_every=5,
-                        )
-                        cig_cache_items = updated_cache.get("items", {}) if isinstance(updated_cache, dict) else cig_cache_items
-                        prog.progress(1.0)
-                        status_box.write("Completato.")
+                run_btn = st.button("Esegui enrichment", key="cig_enrich_run")
+                if run_btn:
+                    if not get_openai_api_key():
+                        st.error("OPENAI_API_KEY mancante: impossibile chiamare gpt-5-nano.")
+                    else:
+                        # Manual CIGs override (se forniti)
+                        manual_list = []
+                        if manual_cigs.strip():
+                            manual_list = re.split(r"[\\s,;]+", manual_cigs.strip())
+                            manual_list = [_normalize_cig(c) for c in manual_list if _is_valid_cig(c)]
 
-                        if results_rows:
-                            res_df = pd.DataFrame(results_rows)
-                            show_dataframe(res_df, use_container_width=True, hide_index=True)
-                        st.success("✅ Enrichment completato: cache aggiornata.")
+                        cigs_to_run = manual_list if manual_list else candidates[: int(batch_size)]
+                        if not cigs_to_run:
+                            st.info("Nessun CIG da processare con i filtri attuali.")
+                        else:
+                            prog = st.progress(0)
+                            status_box = st.empty()
+
+                            def _cb(done, total, cig_now, status):
+                                try:
+                                    prog.progress(min(1.0, done / max(1, total)))
+                                except Exception:
+                                    pass
+                                status_box.write(f"{done}/{total} - {cig_now} - {status}")
+
+                            updated_cache, results_rows = enrich_cigs_via_llm(
+                                cigs_to_run,
+                                use_web=use_web,
+                                force=force_refresh,
+                                ttl_days=int(ttl_days),
+                                progress_cb=_cb,
+                                save_every=5,
+                            )
+                            cig_cache_items = updated_cache.get("items", {}) if isinstance(updated_cache, dict) else cig_cache_items
+                            prog.progress(1.0)
+                            status_box.write("Completato.")
+
+                            if results_rows:
+                                res_df = pd.DataFrame(results_rows)
+                                show_dataframe(res_df, label="cig_enrichment_results", use_container_width=True, hide_index=True)
+                            st.success("✅ Enrichment completato: cache aggiornata.")
+        except Exception as e:
+            st.error("❗️ Errore nella sezione Enrichment (CIG). La dashboard resta attiva.")
+            with st.expander("Dettagli errore (Enrichment)", expanded=False):
+                st.exception(e)
 
     # ==================== VISTA TERRITORIALE: ATTIVI + SCADENZE ====================
-    st.subheader("🧭 Contratti attivi per città/area e scadenza")
-    st.caption("Scadenza calcolata con priorità: `data_scadenza` → CONSIP → `durata_appalto` → LLM (gpt-5-nano via cache) → stima per categoria (se abilitata). Scadenza max mostrata solo se il testo cita rinnovi/proroghe quantificate.")
+    try:
+        st.subheader("🧭 Contratti attivi per città/area e scadenza")
+        st.caption("Scadenza calcolata con priorità: `data_scadenza` → CONSIP → `durata_appalto` → LLM (gpt-5-nano via cache) → stima per categoria (se abilitata). Scadenza max mostrata solo se il testo cita rinnovi/proroghe quantificate.")
 
-    col_cfg1, col_cfg2, col_cfg3 = st.columns([2, 2, 2])
-    with col_cfg1:
-        raggruppa = st.radio("Raggruppa per", ["Comune", "Regione", "Macro-area"], horizontal=True, key="scad_raggruppa")
-    with col_cfg2:
-        include_stime = st.checkbox("Includi stime (fallback)", value=True, key="scad_include_stime")
-    with col_cfg3:
-        solo_attivi = st.checkbox("Solo contratti attivi", value=True, key="scad_solo_attivi")
+        col_cfg1, col_cfg2, col_cfg3 = st.columns([2, 2, 2])
+        with col_cfg1:
+            raggruppa = st.radio("Raggruppa per", ["Comune", "Regione", "Macro-area"], horizontal=True, key="scad_raggruppa")
+        with col_cfg2:
+            include_stime = st.checkbox("Includi stime (fallback)", value=True, key="scad_include_stime")
+        with col_cfg3:
+            solo_attivi = st.checkbox("Solo contratti attivi", value=True, key="scad_solo_attivi")
 
-    df_scad = _compute_scadenze_contratti(filtered_df, consip_map_scadenze, include_stime=include_stime, cig_enrichment_items=cig_cache_items)
+        df_scad = _compute_scadenze_contratti(filtered_df, consip_map_scadenze, include_stime=include_stime, cig_enrichment_items=cig_cache_items)
 
-    if df_scad is None or len(df_scad) == 0:
-        st.info("Dati insufficienti per calcolare le scadenze con i filtri correnti.")
-    else:
-        # Colonne geografiche
-        regione_col_scad = next((c for c in ['regione'] if c in df_scad.columns), None)
-        comune_col_scad = next((c for c in ['comune', 'buyer_locality'] if c in df_scad.columns), None)
-
-        if raggruppa == "Regione":
-            group_col = regione_col_scad
-        elif raggruppa == "Macro-area":
-            if regione_col_scad:
-                df_scad['macro_area'] = df_scad[regione_col_scad].apply(_macro_area_from_regione)
-                group_col = 'macro_area'
-            else:
-                group_col = None
+        if df_scad is None or len(df_scad) == 0:
+            st.info("Dati insufficienti per calcolare le scadenze con i filtri correnti.")
         else:
-            group_col = comune_col_scad
+            # Colonne geografiche
+            regione_col_scad = next((c for c in ['regione'] if c in df_scad.columns), None)
+            comune_col_scad = next((c for c in ['comune', 'buyer_locality'] if c in df_scad.columns), None)
 
-        if not group_col:
-            st.warning("⚠️ Colonne geografiche non disponibili per il raggruppamento selezionato.")
-        else:
-            base = df_scad.copy()
-            base[group_col] = base[group_col].astype('string').str.strip()
-            base = base[base[group_col].notna() & base[group_col].ne('')].copy()
-
-            if solo_attivi:
-                base = base[base['stato_scadenza'] == 'Attivo']
-
-            # Orizzonte: utile per evidenziare scadenze “vicine” senza nascondere le aree
-            max_anni = st.slider("Orizzonte scadenze (anni)", min_value=1, max_value=15, value=5, key="scad_orizzonte")
-            solo_entro_orizzonte = st.checkbox("Mostra solo aree con scadenze entro orizzonte", value=False, key="scad_solo_entro")
-            horizon_days = max_anni * 365
-
-            if len(base) == 0:
-                st.info("Nessun contratto disponibile con i filtri correnti.")
-            else:
-                id_col = next((c for c in ['chiave', 'ocid', 'cig'] if c in base.columns), 'cig')
-                base_future = base[base['giorni_alla_scadenza'].notna() & (base['giorni_alla_scadenza'] >= 0)].copy()
-                base_entro = base_future[base_future['giorni_alla_scadenza'] <= horizon_days].copy()
-
-                prossima = base_future.groupby(group_col, observed=True)['scadenza_contratto'].min().reset_index()
-                prossima = prossima.rename(columns={'scadenza_contratto': 'prossima_scadenza'})
-                prossima_max = base_future.groupby(group_col, observed=True)['scadenza_contratto_max'].min().reset_index()
-                prossima_max = prossima_max.rename(columns={'scadenza_contratto_max': 'prossima_scadenza_max'})
-
-                entro_counts = base_entro.groupby(group_col, observed=True).agg(
-                    scadenze_entro_orizzonte=(id_col, 'nunique'),
-                ).reset_index()
-
-                summary = base.groupby(group_col, observed=True).agg(
-                    contratti=(id_col, 'nunique'),
-                    valore=('award_amount', 'sum'),
-                    scadenze_12m=('giorni_alla_scadenza', lambda s: ((s >= 0) & (s <= 365)).sum()),
-                ).reset_index()
-                summary = summary.merge(prossima, on=group_col, how='left')
-                summary = summary.merge(prossima_max, on=group_col, how='left')
-                summary = summary.merge(entro_counts, on=group_col, how='left')
-                summary['scadenze_entro_orizzonte'] = summary['scadenze_entro_orizzonte'].fillna(0).astype(int)
-                summary['giorni_alla_prossima_scadenza'] = (summary['prossima_scadenza'] - pd.Timestamp.now().normalize()).dt.days
-                summary = summary.sort_values(['giorni_alla_prossima_scadenza', 'contratti'], ascending=[True, False])
-
-                if solo_entro_orizzonte:
-                    summary = summary[summary['scadenze_entro_orizzonte'] > 0]
-
-                if len(summary) == 0:
-                    st.info("Nessuna area con scadenze nell'orizzonte selezionato.")
+            if raggruppa == "Regione":
+                group_col = regione_col_scad
+            elif raggruppa == "Macro-area":
+                if regione_col_scad:
+                    df_scad['macro_area'] = df_scad[regione_col_scad].apply(_macro_area_from_regione)
+                    group_col = 'macro_area'
                 else:
-                    # KPI
-                    k1, k2, k3, k4 = st.columns(4)
-                    with k1:
-                        st.metric("📍 Aree (con scadenze)", f"{summary[group_col].nunique():,}".replace(",", "."))
-                    with k2:
-                        st.metric("📋 Contratti", f"{int(summary['contratti'].sum()):,}".replace(",", "."))
-                    with k3:
-                        st.metric("⚠️ Scadenze 12 mesi", f"{int(summary['scadenze_12m'].sum()):,}".replace(",", "."))
-                    with k4:
-                        st.metric("💰 Valore (somma)", f"€{summary['valore'].sum()/1e9:.2f}B")
+                    group_col = None
+            else:
+                group_col = comune_col_scad
 
-                    # Tabella
-                    display = summary.copy()
-                    display['prossima_scadenza'] = display['prossima_scadenza'].dt.strftime('%d/%m/%Y')
-                    display['prossima_scadenza_max'] = display['prossima_scadenza_max'].dt.strftime('%d/%m/%Y')
-                    display['valore'] = display['valore'].apply(lambda x: f"€{x/1e6:.1f}M" if pd.notna(x) else "-")
-                    display.columns = [
-                        raggruppa,
-                        'Contratti',
-                        'Valore',
-                        'Prossima Scadenza (base)',
-                        'Prossima Scadenza (max)',
-                        'Scadenze 12M',
-                        f"Scadenze entro {max_anni}a",
-                        'Giorni a prossima scadenza'
-                    ]
-                    show_dataframe(display, use_container_width=True, hide_index=True)
+            if not group_col:
+                st.warning("⚠️ Colonne geografiche non disponibili per il raggruppamento selezionato.")
+            else:
+                base = df_scad.copy()
+                base[group_col] = base[group_col].astype('string').str.strip()
+                base = base[base[group_col].notna() & base[group_col].ne('')].copy()
 
-                if len(summary) > 0:
-                    # Drilldown per area
-                    st.markdown("#### 🔎 Dettaglio per area")
-                    area_sel = st.selectbox(
-                        f"Seleziona {raggruppa.lower()}",
-                        summary[group_col].tolist(),
-                        key="scad_area_sel"
-                    )
-                    dettaglio = base[base[group_col] == area_sel].copy()
-                    dettaglio = dettaglio[dettaglio['giorni_alla_scadenza'].notna() & (dettaglio['giorni_alla_scadenza'] >= 0)]
-                    dettaglio_entro = st.checkbox(f"Dettaglio: solo scadenze entro {max_anni} anni", value=False, key="scad_det_entro")
-                    if dettaglio_entro:
-                        dettaglio = dettaglio[dettaglio['giorni_alla_scadenza'] <= horizon_days]
-                    dettaglio = dettaglio.sort_values('scadenza_contratto', ascending=True)
+                if solo_attivi:
+                    base = base[base['stato_scadenza'] == 'Attivo']
 
-                    cols_det = []
-                    for c in ['scadenza_contratto', 'scadenza_contratto_max', 'giorni_alla_scadenza', 'scadenza_fonte', 'llm_confidence', 'llm_notes', 'cig', 'buyer_name', 'supplier_name', '_categoria', 'award_amount', 'award_date', 'anac_url']:
-                        if c in dettaglio.columns:
-                            cols_det.append(c)
+                # Orizzonte: utile per evidenziare scadenze “vicine” senza nascondere le aree
+                max_anni = st.slider("Orizzonte scadenze (anni)", min_value=1, max_value=15, value=5, key="scad_orizzonte")
+                solo_entro_orizzonte = st.checkbox("Mostra solo aree con scadenze entro orizzonte", value=False, key="scad_solo_entro")
+                horizon_days = max_anni * 365
 
-                    if len(dettaglio) > 0 and cols_det:
-                        det = dettaglio[cols_det].copy()
-                        if 'award_amount' in det.columns:
-                            det['award_amount'] = det['award_amount'].apply(lambda x: f"€{x/1e3:.0f}K" if pd.notna(x) else "-")
-                        if 'award_date' in det.columns:
-                            det['award_date'] = det['award_date'].dt.strftime('%d/%m/%Y')
-                        if 'scadenza_contratto' in det.columns:
-                            det['scadenza_contratto'] = det['scadenza_contratto'].dt.strftime('%d/%m/%Y')
-                        if 'scadenza_contratto_max' in det.columns:
-                            det['scadenza_contratto_max'] = det['scadenza_contratto_max'].dt.strftime('%d/%m/%Y')
-                        if 'llm_confidence' in det.columns:
-                            det['llm_confidence'] = pd.to_numeric(det['llm_confidence'], errors='coerce').round(2)
-                        if 'llm_notes' in det.columns:
-                            det['llm_notes'] = det['llm_notes'].apply(lambda x: str(x)[:120] if pd.notna(x) else '')
-                        det = det.rename(columns={
-                            'scadenza_contratto': 'Scadenza (base)',
-                            'scadenza_contratto_max': 'Scadenza (max)',
-                            'giorni_alla_scadenza': 'Giorni alla scadenza',
-                            'scadenza_fonte': 'Fonte scadenza',
-                            'llm_confidence': 'Confidence LLM',
-                            'llm_notes': 'Note LLM',
-                            'cig': 'CIG',
-                            'buyer_name': 'Ente',
-                            'supplier_name': 'Aggiudicatario',
-                            '_categoria': 'Categoria',
-                            'award_amount': 'Importo',
-                            'award_date': 'Aggiudicazione',
-                            'anac_url': 'Dettaglio ANAC'
-                        })
-                        show_dataframe(det, use_container_width=True, hide_index=True)
+                if len(base) == 0:
+                    st.info("Nessun contratto disponibile con i filtri correnti.")
+                else:
+                    id_col = next((c for c in ['chiave', 'ocid', 'cig'] if c in base.columns), 'cig')
+                    base_future = base[base['giorni_alla_scadenza'].notna() & (base['giorni_alla_scadenza'] >= 0)].copy()
+                    base_entro = base_future[base_future['giorni_alla_scadenza'] <= horizon_days].copy()
+
+                    prossima = base_future.groupby(group_col, observed=True)['scadenza_contratto'].min().reset_index()
+                    prossima = prossima.rename(columns={'scadenza_contratto': 'prossima_scadenza'})
+                    prossima_max = base_future.groupby(group_col, observed=True)['scadenza_contratto_max'].min().reset_index()
+                    prossima_max = prossima_max.rename(columns={'scadenza_contratto_max': 'prossima_scadenza_max'})
+
+                    entro_counts = base_entro.groupby(group_col, observed=True).agg(
+                        scadenze_entro_orizzonte=(id_col, 'nunique'),
+                    ).reset_index()
+
+                    summary = base.groupby(group_col, observed=True).agg(
+                        contratti=(id_col, 'nunique'),
+                        valore=('award_amount', 'sum'),
+                        scadenze_12m=('giorni_alla_scadenza', lambda s: ((s >= 0) & (s <= 365)).sum()),
+                    ).reset_index()
+                    summary = summary.merge(prossima, on=group_col, how='left')
+                    summary = summary.merge(prossima_max, on=group_col, how='left')
+                    summary = summary.merge(entro_counts, on=group_col, how='left')
+                    summary['scadenze_entro_orizzonte'] = summary['scadenze_entro_orizzonte'].fillna(0).astype(int)
+                    summary['giorni_alla_prossima_scadenza'] = (summary['prossima_scadenza'] - pd.Timestamp.now().normalize()).dt.days
+                    summary = summary.sort_values(['giorni_alla_prossima_scadenza', 'contratti'], ascending=[True, False])
+
+                    if solo_entro_orizzonte:
+                        summary = summary[summary['scadenze_entro_orizzonte'] > 0]
+
+                    if len(summary) == 0:
+                        st.info("Nessuna area con scadenze nell'orizzonte selezionato.")
                     else:
-                        st.info("Nessun dettaglio disponibile per l'area selezionata.")
+                        # KPI
+                        k1, k2, k3, k4 = st.columns(4)
+                        with k1:
+                            st.metric("📍 Aree (con scadenze)", f"{summary[group_col].nunique():,}".replace(",", "."))
+                        with k2:
+                            st.metric("📋 Contratti", f"{int(summary['contratti'].sum()):,}".replace(",", "."))
+                        with k3:
+                            st.metric("⚠️ Scadenze 12 mesi", f"{int(summary['scadenze_12m'].sum()):,}".replace(",", "."))
+                        with k4:
+                            st.metric("💰 Valore (somma)", f"€{summary['valore'].sum()/1e9:.2f}B")
 
-                    # Download dettaglio
-                    csv_det = dettaglio.to_csv(index=False)
-                    st.download_button(
-                        f"📥 Scarica dettaglio ({raggruppa}: {area_sel})",
-                        csv_det,
-                        f"contratti_scadenza_{raggruppa.lower()}_{str(area_sel).replace(' ', '_')}.csv",
-                        "text/csv"
-                    )
+                        # Tabella
+                        display = summary.copy()
+                        display['prossima_scadenza'] = display['prossima_scadenza'].dt.strftime('%d/%m/%Y')
+                        display['prossima_scadenza_max'] = display['prossima_scadenza_max'].dt.strftime('%d/%m/%Y')
+                        display['valore'] = display['valore'].apply(lambda x: f"€{x/1e6:.1f}M" if pd.notna(x) else "-")
+                        display.columns = [
+                            raggruppa,
+                            'Contratti',
+                            'Valore',
+                            'Prossima Scadenza (base)',
+                            'Prossima Scadenza (max)',
+                            'Scadenze 12M',
+                            f"Scadenze entro {max_anni}a",
+                            'Giorni a prossima scadenza'
+                        ]
+                        show_dataframe(display, label="scadenze_summary_by_area", use_container_width=True, hide_index=True)
+
+                    if len(summary) > 0:
+                        # Drilldown per area
+                        st.markdown("#### 🔎 Dettaglio per area")
+                        area_sel = st.selectbox(
+                            f"Seleziona {raggruppa.lower()}",
+                            summary[group_col].tolist(),
+                            key="scad_area_sel"
+                        )
+                        dettaglio = base[base[group_col] == area_sel].copy()
+                        dettaglio = dettaglio[dettaglio['giorni_alla_scadenza'].notna() & (dettaglio['giorni_alla_scadenza'] >= 0)]
+                        dettaglio_entro = st.checkbox(f"Dettaglio: solo scadenze entro {max_anni} anni", value=False, key="scad_det_entro")
+                        if dettaglio_entro:
+                            dettaglio = dettaglio[dettaglio['giorni_alla_scadenza'] <= horizon_days]
+                        dettaglio = dettaglio.sort_values('scadenza_contratto', ascending=True)
+
+                        cols_det = []
+                        for c in ['scadenza_contratto', 'scadenza_contratto_max', 'giorni_alla_scadenza', 'scadenza_fonte', 'llm_confidence', 'llm_notes', 'cig', 'buyer_name', 'supplier_name', '_categoria', 'award_amount', 'award_date', 'anac_url']:
+                            if c in dettaglio.columns:
+                                cols_det.append(c)
+
+                        if len(dettaglio) > 0 and cols_det:
+                            det = dettaglio[cols_det].copy()
+                            if 'award_amount' in det.columns:
+                                det['award_amount'] = det['award_amount'].apply(lambda x: f"€{x/1e3:.0f}K" if pd.notna(x) else "-")
+                            if 'award_date' in det.columns:
+                                det['award_date'] = det['award_date'].dt.strftime('%d/%m/%Y')
+                            if 'scadenza_contratto' in det.columns:
+                                det['scadenza_contratto'] = det['scadenza_contratto'].dt.strftime('%d/%m/%Y')
+                            if 'scadenza_contratto_max' in det.columns:
+                                det['scadenza_contratto_max'] = det['scadenza_contratto_max'].dt.strftime('%d/%m/%Y')
+                            if 'llm_confidence' in det.columns:
+                                det['llm_confidence'] = pd.to_numeric(det['llm_confidence'], errors='coerce').round(2)
+                            if 'llm_notes' in det.columns:
+                                det['llm_notes'] = det['llm_notes'].apply(lambda x: str(x)[:120] if pd.notna(x) else '')
+                            det = det.rename(columns={
+                                'scadenza_contratto': 'Scadenza (base)',
+                                'scadenza_contratto_max': 'Scadenza (max)',
+                                'giorni_alla_scadenza': 'Giorni alla scadenza',
+                                'scadenza_fonte': 'Fonte scadenza',
+                                'llm_confidence': 'Confidence LLM',
+                                'llm_notes': 'Note LLM',
+                                'cig': 'CIG',
+                                'buyer_name': 'Ente',
+                                'supplier_name': 'Aggiudicatario',
+                                '_categoria': 'Categoria',
+                                'award_amount': 'Importo',
+                                'award_date': 'Aggiudicazione',
+                                'anac_url': 'Dettaglio ANAC'
+                            })
+                            show_dataframe(det, label="scadenze_drilldown_area", use_container_width=True, hide_index=True)
+                        else:
+                            st.info("Nessun dettaglio disponibile per l'area selezionata.")
+
+                        # Download dettaglio
+                        csv_det = dettaglio.to_csv(index=False)
+                        st.download_button(
+                            f"📥 Scarica dettaglio ({raggruppa}: {area_sel})",
+                            csv_det,
+                            f"contratti_scadenza_{raggruppa.lower()}_{str(area_sel).replace(' ', '_')}.csv",
+                            "text/csv"
+                        )
+    except Exception as e:
+        st.error("❗️ Errore nella sezione Scadenze (vista territoriale). La dashboard resta attiva.")
+        with st.expander("Dettagli errore (Scadenze - vista territoriale)", expanded=False):
+            st.exception(e)
 
     st.markdown("---")
 
@@ -4948,7 +5061,7 @@ if tab11:
                 display_df['Aggiudicatario'] = display_df['Aggiudicatario'].apply(lambda x: str(x)[:40] if pd.notna(x) else '-')
 
             display_df.columns = ['Scadenza', 'Tipo', 'Comune', 'Regione', 'Aggiudicatario', 'Valore', 'Durata (gg)']
-            show_dataframe(display_df.sort_values('Scadenza'), use_container_width=True, hide_index=True)
+            show_dataframe(display_df.sort_values('Scadenza'), label="consip_scadenze_dettaglio", use_container_width=True, hide_index=True)
 
             # Download
             csv = contratti_mostra.to_csv(index=False)
@@ -5412,7 +5525,7 @@ if tab13:
                              7: 'Lug', 8: 'Ago', 9: 'Set', 10: 'Ott', 11: 'Nov', 12: 'Dic'}
                 pivot_table.index = pivot_table.index.map(mese_names)
 
-                fig = px.imshow(pivot_table, color_continuous_scale='YlOrRd',
+                fig = px.imshow(pivot_table, color_continuous_scale=BRAND_CONTINUOUS_SCALE,
                                labels={'color': 'N. Gare'}, aspect='auto')
                 fig.update_layout(height=350)
                 render_chart_with_save(fig, "Heatmap Anno/Mese", "Distribuzione gare per anno e mese", "heatmap_year_month")
@@ -6854,7 +6967,7 @@ if tab19:
                 center={'lat': 42.0, 'lon': 12.5},
                 zoom=4.5,
                 title='Heatmap Valore Gare per Regione (€B)',
-                color_continuous_scale='YlOrRd'
+                color_continuous_scale=BRAND_CONTINUOUS_SCALE
             )
             fig.update_layout(height=600)
             st.plotly_chart(fig, use_container_width=True)
