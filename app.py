@@ -7169,13 +7169,16 @@ if tab18:
                             col_names.append('Valore Totale')
                         if 'sconto' in cat_data.columns:
                             col_names.append('Sconto Medio')
-                        cat_winners.columns = col_names[:len(cat_winners.columns)]
-
-                        # Calculate probability score
-                        total_wins = cat_winners['Gare Vinte'].sum()
-                        cat_winners['Prob. Base (%)'] = (cat_winners['Gare Vinte'] / total_wins * 100).round(1)
-
-                        # Adjust for value range compatibility (se c'è la colonna valore)
+                            cat_winners.columns = col_names[:len(cat_winners.columns)]
+    
+                            # Calculate probability score
+                            total_wins = cat_winners['Gare Vinte'].sum()
+                            if not total_wins or total_wins <= 0:
+                                cat_winners['Prob. Base (%)'] = 0.0
+                            else:
+                                cat_winners['Prob. Base (%)'] = (cat_winners['Gare Vinte'] / total_wins * 100).round(1)
+    
+                            # Adjust for value range compatibility (se c'è la colonna valore)
                         if 'Valore Totale' in cat_winners.columns:
                             value_mid = (value_range[0] + value_range[1]) / 2 * 1000
                             cat_winners['Valore Medio'] = cat_winners['Valore Totale'] / cat_winners['Gare Vinte']
@@ -7189,35 +7192,49 @@ if tab18:
                             cat_winners['Score Valore'] = 1.0
                             cat_winners['Valore Medio'] = 0
 
-                        # Final probability
-                        cat_winners['🎯 Probabilità (%)'] = (cat_winners['Prob. Base (%)'] * cat_winners['Score Valore']).round(1)
-                        cat_winners = cat_winners.nlargest(10, '🎯 Probabilità (%)')
-
-                        # Display results
-                        for idx, row in cat_winners.head(5).iterrows():
-                            prob = row['🎯 Probabilità (%)']
-                            color = "🟢" if prob > 15 else "🟡" if prob > 5 else "🔴"
-                            valore_str = f"€{row['Valore Medio']/1e6:.2f}M" if row['Valore Medio'] > 0 else "N/A"
-                            st.markdown(f"""
-                            **{color} {row['Fornitore'][:40]}**
-                            - Probabilità: **{prob}%**
-                            - Gare vinte in categoria: {row['Gare Vinte']}
-                            - Valore medio: {valore_str}
-                            """)
-                            st.progress(min(prob/30, 1.0))
-
-                        # Chart
-                        fig = px.bar(
-                            cat_winners.head(10),
-                            x='🎯 Probabilità (%)',
-                            y='Fornitore',
-                            orientation='h',
-                            title=f'Top 10 Probabili Vincitori - {selected_cat[:30]}',
-                            color='🎯 Probabilità (%)',
-                            color_continuous_scale='Greens'
-                        )
-                        fig.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
-                        st.plotly_chart(fig, use_container_width=True)
+                            # Final probability
+                            cat_winners['🎯 Probabilità (%)'] = (cat_winners['Prob. Base (%)'] * cat_winners['Score Valore']).round(1)
+                            cat_winners = cat_winners.nlargest(10, '🎯 Probabilità (%)')
+    
+                            # Display results
+                            for _, row in cat_winners.head(5).iterrows():
+                                prob_raw = row['🎯 Probabilità (%)']
+                                try:
+                                    prob = float(prob_raw)
+                                    if not np.isfinite(prob):
+                                        prob = 0.0
+                                except Exception:
+                                    prob = 0.0
+    
+                                color = "🟢" if prob > 15 else "🟡" if prob > 5 else "🔴"
+                                try:
+                                    valore_medio = float(row.get('Valore Medio', 0) or 0)
+                                    if not np.isfinite(valore_medio):
+                                        valore_medio = 0.0
+                                except Exception:
+                                    valore_medio = 0.0
+                                valore_str = f"€{valore_medio/1e6:.2f}M" if valore_medio > 0 else "N/A"
+                                st.markdown(f"""
+                                **{color} {row['Fornitore'][:40]}**
+                                - Probabilità: **{prob}%**
+                                - Gare vinte in categoria: {row['Gare Vinte']}
+                                - Valore medio: {valore_str}
+                                """)
+                                progress_val = max(0.0, min(prob / 30.0, 1.0))
+                                st.progress(progress_val)
+    
+                            # Chart
+                            fig = px.bar(
+                                cat_winners.head(10),
+                                x='🎯 Probabilità (%)',
+                                y='Fornitore',
+                                orientation='h',
+                                title=f'Top 10 Probabili Vincitori - {selected_cat[:30]}',
+                                color='🎯 Probabilità (%)',
+                                color_continuous_scale=BRAND_CONTINUOUS_SCALE
+                            )
+                            fig.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
+                            st.plotly_chart(fig, use_container_width=True)
                     else:
                         st.warning("Dati insufficienti per questa categoria/regione")
 
