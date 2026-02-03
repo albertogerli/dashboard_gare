@@ -1411,30 +1411,30 @@ st.sidebar.title("🔍 Filtri")
 st.sidebar.markdown(f"""
 <style>
 /* Stile dropdown più chiaro */
-div[data-baseweb="select"] > div {
+div[data-baseweb="select"] > div {{
     border: 1px solid #ccc;
     border-radius: 4px;
-}
-div[data-baseweb="select"] > div:hover {
+}}
+div[data-baseweb="select"] > div:hover {{
     border-color: {BRAND_GREEN};
-}
+}}
 /* Radio buttons orizzontali compatti */
-div.row-widget.stRadio > div {
+div.row-widget.stRadio > div {{
     flex-direction: row;
     flex-wrap: wrap;
     gap: 0.5rem;
-}
-div.row-widget.stRadio > div > label {
+}}
+div.row-widget.stRadio > div > label {{
     padding: 0.25rem 0.5rem;
     background: {BRAND_SURFACE};
     border-radius: 4px;
     margin: 0;
     font-size: 0.85rem;
-}
-div.row-widget.stRadio > div > label:has(input:checked) {
+}}
+div.row-widget.stRadio > div > label:has(input:checked) {{
     background: {BRAND_GREEN};
     color: white;
-}
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -1653,13 +1653,13 @@ st.markdown("---")
 # Cluster selection con radio buttons
 st.markdown(f"""
 <style>
-.cluster-container {
+.cluster-container {{
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
     margin-bottom: 15px;
-}
-.cluster-btn {
+}}
+.cluster-btn {{
     padding: 8px 16px;
     border-radius: 20px;
     border: 2px solid #e0e0e0;
@@ -1667,16 +1667,16 @@ st.markdown(f"""
     cursor: pointer;
     font-weight: 500;
     transition: all 0.3s;
-}
-.cluster-btn:hover {
+}}
+.cluster-btn:hover {{
     border-color: {BRAND_GREEN};
     background: {BRAND_SURFACE};
-}
-.cluster-btn.active {
+}}
+.cluster-btn.active {{
     background: {BRAND_GREEN};
     border-color: {BRAND_GREEN};
     color: white;
-}
+}}
 </style>
 """, unsafe_allow_html=True)
 
