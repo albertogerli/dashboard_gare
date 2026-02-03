@@ -1655,36 +1655,39 @@ with st.sidebar.expander("🤖 AI", expanded=False):
             else:
                 st.error("❌ API Key non valida (deve iniziare con 'sk-').")
 
-# CSS per migliorare l'aspetto dei selectbox
-st.sidebar.markdown(f"""
+# CSS per migliorare l'aspetto dei selectbox (NO f-string: evita crash da parentesi graffe CSS)
+st.sidebar.markdown(
+    """
 <style>
 /* Stile dropdown più chiaro */
-div[data-baseweb="select"] > div {{
+div[data-baseweb="select"] > div {
     border: 1px solid #ccc;
     border-radius: 4px;
-}}
-div[data-baseweb="select"] > div:hover {{
-    border-color: {BRAND_GREEN};
-}}
+}
+div[data-baseweb="select"] > div:hover {
+    border-color: var(--brand-green);
+}
 /* Radio buttons orizzontali compatti */
-div.row-widget.stRadio > div {{
+div.row-widget.stRadio > div {
     flex-direction: row;
     flex-wrap: wrap;
     gap: 0.5rem;
-}}
-div.row-widget.stRadio > div > label {{
+}
+div.row-widget.stRadio > div > label {
     padding: 0.25rem 0.5rem;
-    background: {BRAND_SURFACE};
+    background: var(--brand-surface);
     border-radius: 4px;
     margin: 0;
     font-size: 0.85rem;
-}}
-div.row-widget.stRadio > div > label:has(input:checked) {{
-    background: {BRAND_GREEN};
+}
+div.row-widget.stRadio > div > label:has(input:checked) {
+    background: var(--brand-green);
     color: white;
-}}
+}
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 # Fonte filter (radio buttons - poche opzioni)
 if 'fonte' in raw_df.columns:
@@ -1899,15 +1902,16 @@ col6.metric("🔑 Chiavi Uniche", f"{chiavi_uniche:,}".replace(",", "."),
 st.markdown("---")
 
 # Cluster selection con radio buttons
-st.markdown(f"""
+st.markdown(
+    """
 <style>
-.cluster-container {{
+.cluster-container {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
     margin-bottom: 15px;
-}}
-.cluster-btn {{
+}
+.cluster-btn {
     padding: 8px 16px;
     border-radius: 20px;
     border: 2px solid #e0e0e0;
@@ -1915,18 +1919,20 @@ st.markdown(f"""
     cursor: pointer;
     font-weight: 500;
     transition: all 0.3s;
-}}
-.cluster-btn:hover {{
-    border-color: {BRAND_GREEN};
-    background: {BRAND_SURFACE};
-}}
-.cluster-btn.active {{
-    background: {BRAND_GREEN};
-    border-color: {BRAND_GREEN};
+}
+.cluster-btn:hover {
+    border-color: var(--brand-green);
+    background: var(--brand-surface);
+}
+.cluster-btn.active {
+    background: var(--brand-green);
+    border-color: var(--brand-green);
     color: white;
-}}
+}
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 # Cluster pills
 cluster_names = ["📊 Panoramica", "🏆 Operatori", "🗺️ Territoriale", "📈 Analisi Avanzata", "🤖 AI & Preferiti"]
