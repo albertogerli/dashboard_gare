@@ -1087,8 +1087,8 @@ def get_openai_api_key():
     # Fallback a variabile d'ambiente
     return os.getenv('OPENAI_API_KEY')
 
-def call_responses_api(prompt: str, instructions: str) -> str:
-    """Call OpenAI Responses API with gpt-5.1-codex-mini"""
+def call_responses_api(prompt: str, instructions: str, model: str = "gpt-5-nano", timeout_s: int = 60) -> str | None:
+    """Call OpenAI Responses API and return output_text (or None)."""
     api_key = get_openai_api_key()
     if not api_key:
         return None
@@ -1098,21 +1098,39 @@ def call_responses_api(prompt: str, instructions: str) -> str:
         "Authorization": f"Bearer {api_key}"
     }
 
-    payload = {
-        "model": "gpt-5.1-codex-mini",
-        "input": prompt,
-        "instructions": instructions
-    }
+    payload = {"model": model, "input": prompt, "instructions": instructions}
 
     try:
         response = requests.post(
             "https://api.openai.com/v1/responses",
             headers=headers,
             json=payload,
-            timeout=60
+            timeout=timeout_s,
         )
-        response.raise_for_status()
-        data = response.json()
+        try:
+            data = response.json()
+        except Exception:
+            data = None
+
+        if response.status_code >= 400:
+            msg = None
+            if isinstance(data, dict):
+                err = data.get("error")
+                if isinstance(err, dict):
+                    msg = err.get("message") or err.get("type") or str(err)
+                elif isinstance(err, str):
+                    msg = err
+            if not msg:
+                try:
+                    msg = (response.text or "").strip()
+                except Exception:
+                    msg = ""
+            msg = (msg or "")[:800]
+            return f"# Errore API: HTTP {response.status_code}: {msg}"
+
+        if not isinstance(data, dict):
+            return "# Errore API: risposta non JSON"
+
         # Extract text from response
         if 'output' in data:
             for item in data['output']:
@@ -1155,7 +1173,7 @@ Colonne disponibili:
 """ + df_info
 
     try:
-        result = call_responses_api(prompt, instructions)
+        result = call_responses_api(prompt, instructions, model="gpt-5.1-codex-mini")
 
         if not result or result.startswith("# Errore"):
             return {"error": result or "Nessuna risposta"}
@@ -1203,7 +1221,7 @@ Colonne disponibili nel DataFrame:
         instructions += f"\n\nAnalisi preliminare:\n{json.dumps(analysis, indent=2)}"
 
     try:
-        code = call_responses_api(f"Crea questo grafico: {prompt}", instructions)
+        code = call_responses_api(f"Crea questo grafico: {prompt}", instructions, model="gpt-5.1-codex-mini", timeout_s=90)
 
         if not code or code.startswith("# Errore"):
             return code or "# Errore: Nessuna risposta"
@@ -1226,6 +1244,96 @@ def execute_chart_code(code: str, df: pd.DataFrame):
         return local_vars.get('fig'), None
     except Exception as e:
         return None, str(e)
+
+def _compact_record_for_ai(record: dict, max_chars: int = 3500) -> str:
+    """Compact a record dict into a readable, size-bounded text block for LLM prompts."""
+    if not isinstance(record, dict):
+        return ""
+    order = [
+        "chiave", "cig", "ocid", "fonte",
+        "oggetto", "tender_title", "tender_description",
+        "ente_appaltante", "buyer_name",
+        "aggiudicatario", "supplier_name",
+        "importo_aggiudicazione", "award_amount",
+        "sconto", "procedura", "categoria", "_categoria", "quick_category",
+        "regione", "comune", "buyer_locality",
+        "data_aggiudicazione", "award_date",
+        "data_scadenza", "durata_appalto",
+        # scadenze calcolate (se presenti)
+        "scadenza_contratto", "scadenza_contratto_max", "scadenza_fonte",
+        "llm_confidence", "llm_notes",
+        "anac_url",
+    ]
+    seen = set()
+    lines = []
+    for k in order + [k for k in record.keys() if k not in order]:
+        if k in seen:
+            continue
+        seen.add(k)
+        v = record.get(k)
+        if v is None or (isinstance(v, float) and np.isnan(v)):
+            continue
+        s = str(v).strip()
+        if not s or s.lower() in {"nan", "none", "nat"}:
+            continue
+        if len(s) > 500:
+            s = s[:500] + "…"
+        lines.append(f"- {k}: {s}")
+        if sum(len(x) + 1 for x in lines) >= max_chars:
+            break
+    out = "\n".join(lines)
+    return out[:max_chars]
+
+def ai_analyze_gara(record: dict, question: str | None = None, model: str = "gpt-5-nano") -> str | None:
+    """Run an AI analysis on a single gara/contratto record."""
+    if not get_openai_api_key():
+        return None
+
+    record_txt = _compact_record_for_ai(record)
+    user_q = (question or "").strip()
+    prompt = (
+        "Analizza questa singola gara/contratto (record dal dataset) e produci un report.\n\n"
+        "RECORD:\n"
+        f"{record_txt}\n\n"
+        + (f"DOMANDA UTENTE:\n{user_q}\n\n" if user_q else "")
+        + "Vincoli:\n"
+        "- Non inventare dati non presenti nel record.\n"
+        "- Se un campo è mancante, scrivi 'non disponibile'.\n"
+        "- Se noti incoerenze (date future/passate, importi strani), segnala.\n"
+    )
+
+    instructions = (
+        "Sei un analista di gare pubbliche. Rispondi in italiano in MARKDOWN, con sezioni:\n"
+        "1) Sintesi (2-3 righe)\n"
+        "2) Dati chiave estratti (bullet)\n"
+        "3) Scadenza/tempo (se applicabile): interpreta data_scadenza/CONSIP/durata_appalto/scadenza_contratto e indica la fonte\n"
+        "4) Ambiguità/Rischi/Ipotesi (solo se presenti, bullet)\n"
+        "5) Azioni consigliate per verifica (max 6 bullet)\n"
+        "Tono professionale, conciso."
+    )
+
+    return call_responses_api(prompt, instructions, model=model, timeout_s=60)
+
+def _ai_select_label_from_row(row: dict, id_value: str) -> str:
+    """Build a compact label for a gara selector."""
+    if not isinstance(row, dict):
+        return str(id_value)
+    obj = row.get("oggetto") or row.get("tender_title") or row.get("tender_description") or ""
+    obj = str(obj).replace("\n", " ").strip()
+    if len(obj) > 90:
+        obj = obj[:90] + "…"
+    buyer = row.get("buyer_name") or row.get("ente_appaltante") or ""
+    buyer = str(buyer).strip()
+    supplier = row.get("supplier_name") or row.get("aggiudicatario") or ""
+    supplier = str(supplier).strip()
+    bits = [str(id_value)]
+    if obj:
+        bits.append(obj)
+    if buyer:
+        bits.append(buyer[:40] + ("…" if len(buyer) > 40 else ""))
+    if supplier:
+        bits.append(supplier[:40] + ("…" if len(supplier) > 40 else ""))
+    return " | ".join(bits[:4])
 
 def get_current_filters():
     """Get current sidebar filter values from session state"""
@@ -1522,6 +1630,30 @@ if 'tipo_appalto' in raw_df.columns:
 
 # Sidebar filters
 st.sidebar.title("🔍 Filtri")
+
+# ==================== SIDEBAR: OPENAI API KEY (SESSION) ====================
+with st.sidebar.expander("🤖 AI", expanded=False):
+    if get_openai_api_key():
+        st.success("API Key presente (sessione corrente).")
+        if st.button("🧹 Rimuovi API Key", key="sidebar_clear_openai_key"):
+            st.session_state.openai_api_key = ""
+            st.rerun()
+    else:
+        st.caption("La chiave viene salvata solo per questa sessione Streamlit.")
+        api_key_input = st.text_input(
+            "OpenAI API Key",
+            type="password",
+            placeholder="sk-...",
+            key="sidebar_openai_key_input",
+            help="Inseriscila una sola volta: verrà usata per Enrichment (Scadenze) + Analisi AI + AI Charts/Chat.",
+        )
+        if st.button("✅ Salva API Key", type="primary", key="sidebar_save_openai_key"):
+            if api_key_input and api_key_input.startswith("sk-"):
+                st.session_state.openai_api_key = api_key_input
+                st.success("✅ Salvata. La pagina si aggiorna…")
+                st.rerun()
+            else:
+                st.error("❌ API Key non valida (deve iniziare con 'sk-').")
 
 # CSS per migliorare l'aspetto dei selectbox
 st.sidebar.markdown(f"""
@@ -2526,6 +2658,7 @@ if 'tab20' in locals() and tab20:
 
                 # Colonne per anteprima
                 preview_cols = [
+                    'chiave', 'cig', 'ocid',
                     'data_aggiudicazione', 'award_date', 'oggetto', 'tender_title', 'ente_appaltante', 'buyer_name',
                     'aggiudicatario', 'supplier_name', 'importo_aggiudicazione', 'award_amount', 'sconto', 'categoria',
                     'procedura', 'regione', 'comune', 'fonte'
@@ -2551,6 +2684,64 @@ if 'tab20' in locals() and tab20:
                     preview[partecipanti_col_search] = pd.to_numeric(preview[partecipanti_col_search], errors='coerce').astype('Int64')
 
                 show_dataframe(preview.head(int(limit_preview)), use_container_width=True, height=500)
+
+                # ==================== AI: ANALISI SINGOLA GARA ====================
+                st.markdown("### 🤖 Analisi AI (seleziona una gara)")
+                if not get_openai_api_key():
+                    st.info("Inserisci la tua OpenAI API Key nella sidebar (sezione 🤖 AI) per usare l’analisi.")
+                else:
+                    id_col = next((c for c in ['chiave', 'cig', 'ocid'] if c in results.columns), None)
+                    if not id_col:
+                        st.info("Nessun identificativo (chiave/cig/ocid) disponibile nei risultati per fare l’analisi.")
+                    else:
+                        max_opts = min(500, len(results))
+                        cand = results.head(max_opts).copy()
+                        cand[id_col] = cand[id_col].astype(str).str.strip()
+                        cand = cand[cand[id_col].ne("") & ~cand[id_col].str.lower().isin({"nan", "none"})].copy()
+                        # de-dup per id
+                        cand = cand.drop_duplicates(subset=[id_col], keep="first")
+
+                        label_map = {}
+                        for r in cand.to_dict(orient="records"):
+                            k = str(r.get(id_col, "")).strip()
+                            if not k:
+                                continue
+                            label_map[k] = _ai_select_label_from_row(r, k)
+
+                        options = list(label_map.keys())
+                        if not options:
+                            st.info("Nessuna gara selezionabile per analisi AI nei primi risultati.")
+                        else:
+                            sel_id = st.selectbox(
+                                "Gara",
+                                options=options,
+                                format_func=lambda x: label_map.get(x, x),
+                                key="ai_select_search_result",
+                            )
+                            question = st.text_area(
+                                "Domanda (opzionale)",
+                                placeholder="Es. che cosa sappiamo sulla scadenza e cosa manca da verificare?",
+                                key="ai_question_search_result",
+                                height=80,
+                            )
+                            if st.button("🤖 Analisi AI", type="primary", key="ai_run_search_result"):
+                                cache_key = f"search:{sel_id}:{hashlib.md5(question.encode('utf-8')).hexdigest()[:8]}"
+                                if "ai_gara_cache" not in st.session_state:
+                                    st.session_state.ai_gara_cache = {}
+                                if cache_key in st.session_state.ai_gara_cache:
+                                    st.markdown(st.session_state.ai_gara_cache[cache_key])
+                                else:
+                                    rec_df = results[results[id_col].astype(str).str.strip() == sel_id]
+                                    if len(rec_df) == 0:
+                                        st.error("Record non trovato nei risultati (id non più presente).")
+                                    else:
+                                        rec = rec_df.iloc[0].to_dict()
+                                        out = ai_analyze_gara(rec, question=question, model="gpt-5-nano")
+                                        if not out:
+                                            st.error("Errore: nessuna risposta (controlla API key / rete / permessi modello).")
+                                        else:
+                                            st.session_state.ai_gara_cache[cache_key] = out
+                                            st.markdown(out)
 
                 # Download completi
                 st.markdown("---")
@@ -5041,6 +5232,63 @@ if tab11:
                                 'anac_url': 'Dettaglio ANAC'
                             })
                             show_dataframe(det, label="scadenze_drilldown_area", use_container_width=True, hide_index=True)
+
+                            # ===== AI: Analisi su singola gara/contratto (dal dettaglio area) =====
+                            with st.expander("🤖 Analisi AI su una gara (dal dettaglio)", expanded=False):
+                                if not get_openai_api_key():
+                                    st.info("Inserisci la tua OpenAI API Key nella sidebar (sezione 🤖 AI) per usare l’analisi.")
+                                else:
+                                    id_col_ai = next((c for c in ['cig', 'chiave', 'ocid'] if c in dettaglio.columns), None)
+                                    if not id_col_ai:
+                                        st.info("Nessun identificativo (cig/chiave/ocid) disponibile per selezionare una gara.")
+                                    else:
+                                        max_opts_ai = min(300, len(dettaglio))
+                                        cand_ai = dettaglio.head(max_opts_ai).copy()
+                                        cand_ai[id_col_ai] = cand_ai[id_col_ai].astype(str).str.strip()
+                                        cand_ai = cand_ai[cand_ai[id_col_ai].notna() & cand_ai[id_col_ai].ne("")].copy()
+                                        cand_ai = cand_ai.drop_duplicates(subset=[id_col_ai], keep="first")
+
+                                        label_map_ai = {}
+                                        for r in cand_ai.to_dict(orient="records"):
+                                            k = str(r.get(id_col_ai, "")).strip()
+                                            if not k or k.lower() in {"nan", "none"}:
+                                                continue
+                                            label_map_ai[k] = _ai_select_label_from_row(r, k)
+
+                                        options_ai = list(label_map_ai.keys())
+                                        if not options_ai:
+                                            st.info("Nessuna gara selezionabile per analisi AI nel dettaglio.")
+                                        else:
+                                            sel_id_ai = st.selectbox(
+                                                "Gara",
+                                                options=options_ai,
+                                                format_func=lambda x: label_map_ai.get(x, x),
+                                                key="ai_select_scadenze_dettaglio",
+                                            )
+                                            question_ai = st.text_area(
+                                                "Domanda (opzionale)",
+                                                placeholder="Es. cosa sappiamo su scadenza/rinnovi e quali verifiche fare?",
+                                                key="ai_question_scadenze_dettaglio",
+                                                height=80,
+                                            )
+                                            if st.button("🤖 Analisi AI", type="primary", key="ai_run_scadenze_dettaglio"):
+                                                if "ai_gara_cache" not in st.session_state:
+                                                    st.session_state.ai_gara_cache = {}
+                                                cache_key = f"scadenze:{raggruppa}:{area_sel}:{sel_id_ai}:{hashlib.md5(question_ai.encode('utf-8')).hexdigest()[:8]}"
+                                                if cache_key in st.session_state.ai_gara_cache:
+                                                    st.markdown(st.session_state.ai_gara_cache[cache_key])
+                                                else:
+                                                    rec_df = dettaglio[dettaglio[id_col_ai].astype(str).str.strip() == sel_id_ai]
+                                                    if len(rec_df) == 0:
+                                                        st.error("Record non trovato nel dettaglio (id non più presente).")
+                                                    else:
+                                                        rec = rec_df.iloc[0].to_dict()
+                                                        out = ai_analyze_gara(rec, question=question_ai, model="gpt-5-nano")
+                                                        if not out:
+                                                            st.error("Errore: nessuna risposta (controlla API key / rete / permessi modello).")
+                                                        else:
+                                                            st.session_state.ai_gara_cache[cache_key] = out
+                                                            st.markdown(out)
                         else:
                             st.info("Nessun dettaglio disponibile per l'area selezionata.")
 

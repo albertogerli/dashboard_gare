@@ -1,6 +1,6 @@
 # Dashboard Gare Pubbliche Italiane — Guida Completa (funzioni, filtri, tab)
 
-Ultimo aggiornamento: 2026-02-02  
+Ultimo aggiornamento: 2026-02-03  
 Repository: `dashboard_gare` — app Streamlit in `app.py`
 
 ## 1) Obiettivo della dashboard
@@ -463,7 +463,22 @@ Funzionalità:
 
 - `.env` viene caricato (se presente) dalla directory parent del file `app.py`.
 - `OPENAI_API_KEY`:
-  - può essere impostata via env oppure inserita in UI (Tab 15) e salvata in sessione.
+  - può essere impostata via env oppure inserita in UI (sidebar → expander `🤖 AI`) e salvata in sessione.
+  - viene usata per: AI Charts, Chat AI, **Analisi AI singola gara**, Enrichment scadenze (CIG).
+
+## 9.1) Analisi AI singola gara (selezione record)
+
+Oltre alla Chat AI generica, la dashboard permette di selezionare **una singola gara/contratto** e lanciare un report AI “record-based” (senza inventare dati):
+
+1) **Tab 20 — `🔎 Ricerca`** (cluster `📊 Panoramica`)
+   - dopo aver fatto una ricerca (Cerca), compare la sezione **“🤖 Analisi AI (seleziona una gara)”**
+   - selezioni una gara dai risultati (max 500 opzioni)
+   - puoi inserire una domanda opzionale
+   - clic “🤖 Analisi AI” → output in Markdown
+
+2) **Tab 11 — `📅 Scadenze`** (cluster `📈 Analisi Avanzata`)
+   - nel **drilldown per area** (dettaglio area), trovi un expander **“🤖 Analisi AI su una gara (dal dettaglio)”**
+   - selezioni il CIG (o altro id presente) e lanci l’analisi
 
 ## 10) Note operative / limiti noti
 
@@ -474,4 +489,3 @@ Funzionalità:
   - non “inventa” date; produce scadenze solo se trova durata/data in testo locale o in URL espliciti (fallback web).
   - la “scadenza max” appare solo se i rinnovi/proroghe sono **quantificati** nel testo.
 - La dashboard sanitizza le tabelle per evitare crash di serializzazione Arrow (conversioni a stringa, tz-naive, ecc.).
-
