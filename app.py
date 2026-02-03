@@ -1408,7 +1408,7 @@ if 'tipo_appalto' in raw_df.columns:
 st.sidebar.title("🔍 Filtri")
 
 # CSS per migliorare l'aspetto dei selectbox
-st.sidebar.markdown("""
+st.sidebar.markdown(f"""
 <style>
 /* Stile dropdown più chiaro */
 div[data-baseweb="select"] > div {
@@ -1416,7 +1416,7 @@ div[data-baseweb="select"] > div {
     border-radius: 4px;
 }
 div[data-baseweb="select"] > div:hover {
-    border-color: #1f77b4;
+    border-color: {BRAND_GREEN};
 }
 /* Radio buttons orizzontali compatti */
 div.row-widget.stRadio > div {
@@ -1426,13 +1426,13 @@ div.row-widget.stRadio > div {
 }
 div.row-widget.stRadio > div > label {
     padding: 0.25rem 0.5rem;
-    background: #f0f2f6;
+    background: {BRAND_SURFACE};
     border-radius: 4px;
     margin: 0;
     font-size: 0.85rem;
 }
 div.row-widget.stRadio > div > label:has(input:checked) {
-    background: #1f77b4;
+    background: {BRAND_GREEN};
     color: white;
 }
 </style>
@@ -1651,7 +1651,7 @@ col6.metric("🔑 Chiavi Uniche", f"{chiavi_uniche:,}".replace(",", "."),
 st.markdown("---")
 
 # Cluster selection con radio buttons
-st.markdown("""
+st.markdown(f"""
 <style>
 .cluster-container {
     display: flex;
@@ -1669,12 +1669,12 @@ st.markdown("""
     transition: all 0.3s;
 }
 .cluster-btn:hover {
-    border-color: #00d084;
-    background: #f0fff8;
+    border-color: {BRAND_GREEN};
+    background: {BRAND_SURFACE};
 }
 .cluster-btn.active {
-    background: #00d084;
-    border-color: #00d084;
+    background: {BRAND_GREEN};
+    border-color: {BRAND_GREEN};
     color: white;
 }
 </style>
@@ -6152,7 +6152,7 @@ if tab15:
             col = row1_cols[i] if i < 3 else row2_cols[i - 3]
             with col:
                 st.markdown(f"""
-                <div style="background: linear-gradient(135deg, #f8f9fa, #e9ecef); padding: 10px; border-radius: 8px; margin-bottom: 5px; border-left: 3px solid #00d084;">
+                <div style="background: linear-gradient(135deg, {BRAND_SURFACE}, #ffffff); padding: 10px; border-radius: 8px; margin-bottom: 5px; border-left: 3px solid {BRAND_GREEN};">
                     <span style="font-size: 1.2em;">{icon}</span> <strong>{label}</strong>
                 </div>
                 """, unsafe_allow_html=True)
