@@ -463,40 +463,72 @@ def load_testo_completo_for_cigs(cigs: set[str], max_chars_per_cig: int = 20000)
     if path is None:
         return {}
 
-    out = {}
+    # NOTE: Do NOT use pandas chunked read here.
+    # `testo_completo` is very large: pandas chunks can still spike memory and crash Streamlit Cloud.
+    # We stream the CSV to keep memory flat.
+    import csv
+    import sys
+    import gzip
+
+    out: dict[str, str] = {}
     try:
-        compression = 'gzip' if str(path).endswith('.gz') else None
-        header = pd.read_csv(path, compression=compression, nrows=0)
-        available = set(header.columns.tolist())
-        base_cols = ['cig', 'testo_completo', 'oggetto', 'data_aggiudicazione']
-        usecols = [c for c in base_cols if c in available]
-        if 'cig' not in usecols:
-            return {}
-        for chunk in pd.read_csv(path, compression=compression, usecols=usecols, dtype={'cig': 'str'}, chunksize=50000, low_memory=False):
-            if 'cig' not in chunk.columns:
-                continue
-            chunk['cig'] = chunk['cig'].fillna('').astype(str).str.strip().str.upper()
-            sub = chunk[chunk['cig'].isin(target)]
-            if len(sub) == 0:
-                continue
-            for _, row in sub.iterrows():
-                cig = _normalize_cig(row.get('cig'))
-                if cig in out:
+        try:
+            csv.field_size_limit(sys.maxsize)
+        except Exception:
+            # Some platforms reject very large limits; best-effort.
+            try:
+                csv.field_size_limit(10_000_000)
+            except Exception:
+                pass
+
+        is_gz = str(path).endswith(".gz")
+        opener = gzip.open if is_gz else open  # type: ignore
+        with opener(path, "rt", encoding="utf-8", errors="replace", newline="") as f:
+            reader = csv.reader(f, delimiter=",", quotechar='"')
+            header = next(reader, None)
+            if not header:
+                return {}
+
+            idx = {str(name).strip(): i for i, name in enumerate(header)}
+            cig_i = idx.get("cig")
+            if cig_i is None:
+                return {}
+
+            testo_i = idx.get("testo_completo")
+            oggetto_i = idx.get("oggetto")
+            award_i = idx.get("data_aggiudicazione")
+
+            for row in reader:
+                if not row or len(row) <= cig_i:
                     continue
-                testo = row.get('testo_completo')
-                oggetto = row.get('oggetto')
-                award = row.get('data_aggiudicazione')
-                text = ""
-                if pd.notna(oggetto) and str(oggetto).strip():
-                    text += f"OGGETTO: {str(oggetto).strip()}\n"
-                if pd.notna(award) and str(award).strip():
-                    text += f"DATA_AGGIUDICAZIONE_RAW: {str(award).strip()}\n"
-                if pd.notna(testo) and str(testo).strip():
-                    text += str(testo)
-                out[cig] = text[:max_chars_per_cig]
-            if len(out) >= len(target):
-                break
+                cig = _normalize_cig(row[cig_i])
+                if cig not in target or cig in out:
+                    continue
+
+                parts = []
+                if oggetto_i is not None and len(row) > oggetto_i:
+                    oggetto = (row[oggetto_i] or "").strip()
+                    if oggetto:
+                        parts.append(f"OGGETTO: {oggetto}")
+                if award_i is not None and len(row) > award_i:
+                    award = (row[award_i] or "").strip()
+                    if award:
+                        parts.append(f"DATA_AGGIUDICAZIONE_RAW: {award}")
+
+                body = ""
+                if testo_i is not None and len(row) > testo_i:
+                    body = row[testo_i] or ""
+
+                text = ("\n".join(parts) + ("\n" if parts else "") + body).strip()
+                if text:
+                    out[cig] = text[:max_chars_per_cig]
+                else:
+                    out[cig] = ""
+
+                if len(out) >= len(target):
+                    break
     except Exception:
+        # Return whatever we managed to read
         return out
     return out
 
@@ -701,7 +733,50 @@ def enrich_cigs_via_llm(
     now_iso = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
     results = []
 
-    texts = load_testo_completo_for_cigs(set(cigs))
+    def _is_fresh_by_updated_at(item: dict) -> bool:
+        if force:
+            return False
+        if not isinstance(item, dict) or not item.get("result"):
+            return False
+        updated_at = item.get("updated_at")
+        if not updated_at:
+            return False
+        try:
+            ts = pd.to_datetime(updated_at, utc=True, errors="coerce")
+            if ts is pd.NaT:
+                return False
+            age_days = (pd.Timestamp.utcnow() - ts).days
+            return age_days <= int(ttl_days)
+        except Exception:
+            return False
+
+    # Avoid loading `testo_completo` for CIGs already fresh in cache (saves time/memory on Streamlit Cloud)
+    valid_cigs = []
+    to_process = []
+    for cig in cigs:
+        cig_n = _normalize_cig(cig)
+        if not _is_valid_cig(cig_n):
+            continue
+        valid_cigs.append(cig_n)
+        existing = items.get(cig_n, {})
+        if _is_fresh_by_updated_at(existing):
+            res = existing.get("result") or {}
+            results.append({
+                "cig": cig_n,
+                "status": "cached",
+                "confidence": res.get("confidence") if isinstance(res, dict) else None,
+                "duration_base_days": res.get("duration_base_days") if isinstance(res, dict) else None,
+                "duration_max_days": res.get("duration_max_days") if isinstance(res, dict) else None,
+                "explicit_start_date": res.get("explicit_start_date") if isinstance(res, dict) else None,
+                "explicit_end_date": res.get("explicit_end_date") if isinstance(res, dict) else None,
+                "notes": res.get("notes", "") if isinstance(res, dict) else "",
+            })
+            if progress_cb:
+                progress_cb(len(results), len(valid_cigs), cig_n, "cached")
+        else:
+            to_process.append(cig_n)
+
+    texts = load_testo_completo_for_cigs(set(to_process))
 
     schema = {
         "type": "object",
@@ -762,13 +837,9 @@ def enrich_cigs_via_llm(
         "Rispondi SOLO con JSON conforme allo schema."
     )
 
-    total = len(cigs)
-    processed = 0
-    for cig in cigs:
-        cig_n = _normalize_cig(cig)
-        if not _is_valid_cig(cig_n):
-            continue
-
+    total = len(valid_cigs)
+    processed = len(results)
+    for cig_n in to_process:
         existing = items.get(cig_n, {})
         updated_at = existing.get("updated_at")
         input_hash_old = existing.get("input_hash")
@@ -791,9 +862,9 @@ def enrich_cigs_via_llm(
         joined = "\n".join(snippets[:12])
         input_hash = hashlib.sha256(joined.encode("utf-8", errors="ignore")).hexdigest()
 
-        # TTL check
+        # TTL check (stricter: also requires same input_hash)
         fresh_enough = False
-        if updated_at and not force and input_hash_old == input_hash:
+        if updated_at and not force and input_hash_old == input_hash and existing.get("result"):
             try:
                 ts = pd.to_datetime(updated_at, utc=True, errors="coerce")
                 if ts is not pd.NaT:
@@ -802,17 +873,17 @@ def enrich_cigs_via_llm(
             except Exception:
                 fresh_enough = False
 
-        if fresh_enough and existing.get("result"):
-            res = existing["result"]
+        if fresh_enough:
+            res = existing.get("result") or {}
             results.append({
                 "cig": cig_n,
                 "status": "cached",
-                "confidence": res.get("confidence"),
-                "duration_base_days": res.get("duration_base_days"),
-                "duration_max_days": res.get("duration_max_days"),
-                "explicit_start_date": res.get("explicit_start_date"),
-                "explicit_end_date": res.get("explicit_end_date"),
-                "notes": res.get("notes", ""),
+                "confidence": res.get("confidence") if isinstance(res, dict) else None,
+                "duration_base_days": res.get("duration_base_days") if isinstance(res, dict) else None,
+                "duration_max_days": res.get("duration_max_days") if isinstance(res, dict) else None,
+                "explicit_start_date": res.get("explicit_start_date") if isinstance(res, dict) else None,
+                "explicit_end_date": res.get("explicit_end_date") if isinstance(res, dict) else None,
+                "notes": res.get("notes", "") if isinstance(res, dict) else "",
             })
             processed += 1
             if progress_cb:
@@ -856,7 +927,10 @@ def enrich_cigs_via_llm(
         # Retry with exponential backoff for transient errors
         last = None
         for attempt in range(3):
-            last = call_responses_api_structured("gpt-5-nano", prompt, instructions, schema)
+            try:
+                last = call_responses_api_structured("gpt-5-nano", prompt, instructions, schema)
+            except Exception as e:
+                last = {"error": f"call_error:{type(e).__name__}"}
             if isinstance(last, dict) and not last.get("error"):
                 break
             time.sleep(1.5 * (2 ** attempt))
