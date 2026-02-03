@@ -669,8 +669,29 @@ def call_responses_api_structured(model: str, prompt: str, instructions: str, js
             json=payload,
             timeout=90,
         )
-        response.raise_for_status()
-        data = response.json()
+        try:
+            data = response.json()
+        except Exception:
+            data = None
+
+        if response.status_code >= 400:
+            msg = None
+            if isinstance(data, dict):
+                err = data.get("error")
+                if isinstance(err, dict):
+                    msg = err.get("message") or err.get("type") or str(err)
+                elif isinstance(err, str):
+                    msg = err
+            if not msg:
+                try:
+                    msg = (response.text or "").strip()
+                except Exception:
+                    msg = ""
+            msg = (msg or "")[:800]
+            return {"error": f"HTTP {response.status_code}: {msg}"}
+
+        if not isinstance(data, dict):
+            return {"error": "Invalid API response (non-JSON)"}
 
         # Prefer output_json if present
         if isinstance(data, dict) and "output" in data:
@@ -687,8 +708,10 @@ def call_responses_api_structured(model: str, prompt: str, instructions: str, js
                         except Exception:
                             return {"error": "Invalid JSON output", "raw": text}
         return {"error": "No structured output"}
+    except requests.exceptions.RequestException as e:
+        return {"error": f"request_error:{type(e).__name__}"}
     except Exception as e:
-        return {"error": f"API error: {type(e).__name__}: {str(e)}"}
+        return {"error": f"api_error:{type(e).__name__}"}
 
 def _duration_to_days(value, unit):
     if value is None or unit is None:
@@ -732,6 +755,22 @@ def enrich_cigs_via_llm(
     items = cache.setdefault("items", {})
     now_iso = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
     results = []
+
+    def _short_err(err) -> str:
+        s = str(err or "").replace("\n", " ").strip()
+        return s[:90]
+
+    def _is_fatal_err(err: str) -> bool:
+        e = (err or "").lower()
+        return (
+            ("http 401" in e)
+            or ("http 403" in e)
+            or ("invalid_api_key" in e)
+            or ("incorrect api key" in e)
+            or ("you do not have access" in e and "model" in e)
+            or ("model" in e and "not found" in e)
+            or ("http 404" in e and "model" in e)
+        )
 
     def _is_fresh_by_updated_at(item: dict) -> bool:
         if force:
@@ -936,20 +975,25 @@ def enrich_cigs_via_llm(
             time.sleep(1.5 * (2 ** attempt))
 
         if not isinstance(last, dict) or last.get("error"):
+            err_str = last.get("error") if isinstance(last, dict) else "unknown_error"
             items[cig_n] = {
                 "updated_at": now_iso,
                 "model": "gpt-5-nano",
                 "input_hash": input_hash,
                 "result": None,
-                "errors": [last.get("error") if isinstance(last, dict) else "unknown_error"],
+                "errors": [err_str],
             }
-            results.append({"cig": cig_n, "status": "error", "confidence": None, "notes": str(last)})
+            results.append({"cig": cig_n, "status": "error", "confidence": None, "notes": _short_err(err_str)})
             processed += 1
             if progress_cb:
-                progress_cb(processed, total, cig_n, "error")
+                progress_cb(processed, total, cig_n, f"error: {_short_err(err_str)}")
             if save_every and processed % int(save_every) == 0:
                 cache["items"] = items
                 save_cig_enrichment_cache(cache)
+            if _is_fatal_err(str(err_str)):
+                # Stop early: likely all remaining will fail too
+                results.append({"cig": cig_n, "status": "fatal", "confidence": None, "notes": _short_err(err_str)})
+                break
             continue
 
         # Normalize into cache result
@@ -4820,10 +4864,20 @@ if tab11:
                             prog.progress(1.0)
                             status_box.write("Completato.")
 
-                            if results_rows:
-                                res_df = pd.DataFrame(results_rows)
-                                show_dataframe(res_df, label="cig_enrichment_results", use_container_width=True, hide_index=True)
-                            st.success("✅ Enrichment completato: cache aggiornata.")
+                        if results_rows:
+                            res_df = pd.DataFrame(results_rows)
+                            show_dataframe(res_df, label="cig_enrichment_results", use_container_width=True, hide_index=True)
+                            try:
+                                if "status" in res_df.columns and len(res_df) > 0:
+                                    counts = res_df["status"].value_counts(dropna=False).to_dict()
+                                    st.caption(f"Esiti batch: {counts}")
+                                    if "fatal" in counts:
+                                        st.error("Errore FATALE durante enrichment: controlla API key / permessi modello / rete. Vedi colonna 'notes'.")
+                                    elif counts.get("error", 0) == len(res_df):
+                                        st.warning("Tutti i CIG in questo batch sono andati in errore. Apri la tabella e guarda la colonna 'notes' per il motivo.")
+                            except Exception:
+                                pass
+                        st.success("✅ Enrichment completato: cache aggiornata.")
         except Exception as e:
             st.error("❗️ Errore nella sezione Enrichment (CIG). La dashboard resta attiva.")
             with st.expander("Dettagli errore (Enrichment)", expanded=False):
