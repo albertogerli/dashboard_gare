@@ -653,11 +653,9 @@ def call_responses_api_structured(model: str, prompt: str, instructions: str, js
         "text": {
             "format": {
                 "type": "json_schema",
-                "json_schema": {
-                    "name": "cig_enrichment",
-                    "schema": json_schema,
-                    "strict": True,
-                },
+                "name": "cig_enrichment",
+                "schema": json_schema,
+                "strict": True,
             }
         },
     }
