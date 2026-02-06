@@ -1529,9 +1529,77 @@ def load_consip_data():
         st.warning(f"Errore caricamento dati CONSIP: {e}")
         return pd.DataFrame()
 
+@st.cache_data
+def load_comuni_istat():
+    """Carica coordinate e info di tutti i comuni italiani da file ISTAT."""
+    istat_path = Path(__file__).parent / "data" / "comuni_istat.csv"
+    if not istat_path.exists():
+        return pd.DataFrame()
+    df = pd.read_csv(istat_path, dtype=str)
+    df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
+    df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
+    return df
+
+def _normalize_comune_name(s):
+    """Normalizza nome comune per matching: lowercase, strip, rimuovi accenti."""
+    if pd.isna(s) or str(s).strip() == '' or str(s).lower() in ('nan', 'none'):
+        return ''
+    import unicodedata
+    s = str(s).strip()
+    nfkd = unicodedata.normalize('NFKD', s)
+    return ''.join(c for c in nfkd if not unicodedata.combining(c)).lower()
+
+@st.cache_data
+def _build_istat_lookup(_comuni_istat_df):
+    """Costruisce dizionari di lookup per geocoding e backfill regione."""
+    if _comuni_istat_df is None or len(_comuni_istat_df) == 0:
+        return {}, {}
+    # Lookup: comune_normalized -> (lat, lon, regione, comune_ufficiale)
+    geo_lookup = {}
+    regione_lookup = {}
+    for _, row in _comuni_istat_df.iterrows():
+        key = str(row.get('comune_normalized', '')).strip()
+        if not key:
+            continue
+        geo_lookup[key] = (row['lat'], row['lon'], row.get('regione', ''), row.get('comune', ''))
+        regione_lookup[key] = row.get('regione', '')
+    # Alias comuni con nomi usati comunemente diversi dal nome ISTAT ufficiale
+    _aliases = {
+        'reggio emilia': "reggio nell'emilia",
+        'reggio calabria': 'reggio di calabria',
+        'forli': "forli'", 'cesena': 'cesena',
+        'massa': 'massa', 'carrara': 'carrara',
+    }
+    for alias, official in _aliases.items():
+        if official in geo_lookup and alias not in geo_lookup:
+            geo_lookup[alias] = geo_lookup[official]
+            regione_lookup[alias] = regione_lookup[official]
+    return geo_lookup, regione_lookup
+
+def _geocode_comune(nome, geo_lookup):
+    """Restituisce (lat, lon) per un comune usando il lookup ISTAT."""
+    key = _normalize_comune_name(nome)
+    if not key:
+        return None, None
+    hit = geo_lookup.get(key)
+    if hit:
+        return hit[0], hit[1]
+    # Fuzzy match per varianti di nomi (es. "San Donato Milanese" vs "San Donato")
+    from rapidfuzz import fuzz, process
+    candidates = list(geo_lookup.keys())
+    if not candidates:
+        return None, None
+    match = process.extractOne(key, candidates, scorer=fuzz.ratio, score_cutoff=85)
+    if match:
+        hit = geo_lookup[match[0]]
+        return hit[0], hit[1]
+    return None, None
+
 data = load_data()
 raw_df = load_raw_data()
 consip_raw_df = load_consip_data()
+comuni_istat_df = load_comuni_istat()
+_geo_lookup, _regione_lookup = _build_istat_lookup(comuni_istat_df)
 
 # Verifica che i dati siano stati caricati correttamente
 if raw_df is None or len(raw_df) == 0:
@@ -1579,6 +1647,22 @@ if 'regione' in raw_df.columns:
     }
     # Converti a string prima di replace per evitare warning con CategoricalDtype
     raw_df['regione'] = raw_df['regione'].astype(str).replace(regioni_map).astype('category')
+
+# Backfill regione da ISTAT (per record con comune ma senza regione)
+if _regione_lookup and 'comune' in raw_df.columns:
+    missing_regione = raw_df['regione'].isna() | raw_df['regione'].astype(str).isin(['nan', '', 'None'])
+    if missing_regione.any():
+        comuni_norm = raw_df.loc[missing_regione, 'comune'].apply(_normalize_comune_name)
+        regioni_fill = comuni_norm.map(_regione_lookup)
+        raw_df.loc[missing_regione, 'regione'] = regioni_fill
+        # Se anche buyer_locality presente, usa come fallback
+        if 'buyer_locality' in raw_df.columns:
+            still_missing = raw_df['regione'].isna() | raw_df['regione'].astype(str).isin(['nan', '', 'None'])
+            locality_norm = raw_df.loc[still_missing, 'buyer_locality'].apply(_normalize_comune_name)
+            regioni_fill2 = locality_norm.map(_regione_lookup)
+            raw_df.loc[still_missing, 'regione'] = regioni_fill2
+        # Riconverti a category dopo backfill
+        raw_df['regione'] = raw_df['regione'].astype(str).replace({'nan': np.nan, 'None': np.nan, '': np.nan}).astype('category')
 
 # Normalizza procedure (estrai nome pulito da formato "COD:XX ; TITLE:Nome")
 if 'procedura' in raw_df.columns:
@@ -1897,6 +1981,99 @@ col5.metric("🏛️ CONSIP", f"{gare_consip:,}".replace(",", "."),
             help="Gare da convenzioni CONSIP (Servizio Luce, SIE)")
 col6.metric("🔑 Chiavi Uniche", f"{chiavi_uniche:,}".replace(",", "."),
             help="Numero di identificativi univoci (CIG o OCID) distinti")
+
+# ==================== ALERT SCADENZE IMMINENTI (BANNER) ====================
+try:
+    _consip_for_alert = load_consip_data()
+    _consip_map_alert = None
+    if _consip_for_alert is not None and len(_consip_for_alert) > 0 and 'CIG' in _consip_for_alert.columns:
+        # Calcolo leggero della mappa CONSIP per alert
+        _dfc_a = _consip_for_alert.copy()
+        for _col_a in ['DataAggiudicazione', 'DATA_ULTIMO_PERFEZIONAMENTO', 'DATA_COMUNICAZIONE_ESITO', 'DataPubblicazione']:
+            if _col_a in _dfc_a.columns:
+                _dfc_a[_col_a] = pd.to_datetime(_dfc_a[_col_a], format='%d/%m/%Y', errors='coerce')
+        _dfc_a['durata_giorni_consip'] = pd.to_numeric(_dfc_a.get('DURATA_PREVISTA', pd.Series(dtype='float64')), errors='coerce')
+        _start_a = _dfc_a.get('DataAggiudicazione', pd.Series([pd.NaT] * len(_dfc_a)))
+        for _fb in ['DATA_ULTIMO_PERFEZIONAMENTO', 'DATA_COMUNICAZIONE_ESITO', 'DataPubblicazione']:
+            if _fb in _dfc_a.columns:
+                _start_a = _start_a.fillna(_dfc_a[_fb])
+        _dfc_a['scadenza_consip'] = _start_a + pd.to_timedelta(_dfc_a['durata_giorni_consip'], unit='D')
+        _dfc_a['cig'] = _dfc_a['CIG'].astype(str).str.strip()
+        _dfc_a = _dfc_a[_dfc_a['cig'].ne('') & _dfc_a['scadenza_consip'].notna()]
+        _consip_map_alert = _dfc_a.groupby('cig', as_index=False).agg({'scadenza_consip': 'max', 'durata_giorni_consip': 'max'})
+
+    # Calcola scadenze su tutto il dataset (senza filtri) per alert globale
+    _alert_cols = [c for c in ['cig', 'comune', 'buyer_locality', 'regione', 'award_amount', 'importo_aggiudicazione',
+                               'data_aggiudicazione', 'data_scadenza', 'durata_appalto', '_categoria', 'categoria',
+                               'oggetto'] if c in raw_df.columns]
+    _alert_df = raw_df[_alert_cols].copy()
+    if 'cig' in _alert_df.columns:
+        _alert_df['cig'] = _alert_df['cig'].fillna('').astype(str).str.strip().replace({'nan': '', 'None': ''})
+    else:
+        _alert_df['cig'] = ''
+    if 'data_aggiudicazione' in _alert_df.columns:
+        _alert_df['award_date'] = pd.to_datetime(_alert_df['data_aggiudicazione'], errors='coerce')
+    else:
+        _alert_df['award_date'] = pd.NaT
+    if 'importo_aggiudicazione' in _alert_df.columns:
+        _alert_df['award_amount'] = pd.to_numeric(_alert_df.get('award_amount', _alert_df.get('importo_aggiudicazione')), errors='coerce')
+    # Scadenza: solo fonti affidabili (no stime) per alert
+    _alert_df['scadenza'] = pd.NaT
+    if 'data_scadenza' in _alert_df.columns:
+        _alert_df['scadenza'] = pd.to_datetime(_alert_df['data_scadenza'], errors='coerce')
+    if _consip_map_alert is not None and len(_consip_map_alert) > 0:
+        _alert_df = _alert_df.merge(_consip_map_alert[['cig', 'scadenza_consip']], on='cig', how='left')
+        _alert_df['scadenza'] = _alert_df['scadenza'].fillna(_alert_df['scadenza_consip'])
+    if 'durata_appalto' in _alert_df.columns:
+        _dur = pd.to_numeric(_alert_df['durata_appalto'], errors='coerce')
+        _scad_dur = _alert_df['award_date'] + pd.to_timedelta(_dur, unit='D')
+        _alert_df['scadenza'] = _alert_df['scadenza'].fillna(_scad_dur)
+    # Filtra solo scadenze valide e future
+    _oggi = pd.Timestamp.now().normalize()
+    _alert_df['giorni'] = (_alert_df['scadenza'] - _oggi).dt.days
+    _alert_valid = _alert_df[_alert_df['scadenza'].notna() & (_alert_df['giorni'] >= -30)]  # include scaduti da max 30gg
+
+    _n30 = (_alert_valid['giorni'].between(-30, 30)).sum()
+    _n90 = (_alert_valid['giorni'].between(-30, 90)).sum()
+    _n365 = (_alert_valid['giorni'].between(-30, 365)).sum()
+    _v30 = _alert_valid.loc[_alert_valid['giorni'].between(-30, 30), 'award_amount'].sum()
+    _v365 = _alert_valid.loc[_alert_valid['giorni'].between(-30, 365), 'award_amount'].sum()
+
+    _comune_col_alert = next((c for c in ['comune', 'buyer_locality'] if c in _alert_valid.columns), None)
+    _cat_col_alert = next((c for c in ['_categoria', 'categoria'] if c in _alert_valid.columns), None)
+
+    if _n30 > 0:
+        with st.expander(f"🔴 {_n30} contratti in scadenza/scaduti entro 30 giorni (€{_v30/1e6:.1f}M)", expanded=False):
+            _cols_30 = []
+            if _comune_col_alert:
+                _top_comuni_30 = _alert_valid.loc[_alert_valid['giorni'].between(-30, 30)].groupby(_comune_col_alert).size().nlargest(5)
+                _cols_30.append("**Top comuni:** " + ", ".join(f"{c} ({n})" for c, n in _top_comuni_30.items()))
+            if _cat_col_alert:
+                _top_cat_30 = _alert_valid.loc[_alert_valid['giorni'].between(-30, 30)].groupby(_cat_col_alert).size().nlargest(3)
+                _cols_30.append("**Top categorie:** " + ", ".join(f"{c} ({n})" for c, n in _top_cat_30.items()))
+            st.markdown(" | ".join(_cols_30) if _cols_30 else "Dettagli nel tab Scadenze")
+    if _n90 > _n30:
+        with st.expander(f"🟠 {_n90} contratti in scadenza entro 90 giorni", expanded=False):
+            _cols_90 = []
+            if _comune_col_alert:
+                _top_comuni_90 = _alert_valid.loc[_alert_valid['giorni'].between(-30, 90)].groupby(_comune_col_alert).size().nlargest(5)
+                _cols_90.append("**Top comuni:** " + ", ".join(f"{c} ({n})" for c, n in _top_comuni_90.items()))
+            if _cat_col_alert:
+                _top_cat_90 = _alert_valid.loc[_alert_valid['giorni'].between(-30, 90)].groupby(_cat_col_alert).size().nlargest(3)
+                _cols_90.append("**Top categorie:** " + ", ".join(f"{c} ({n})" for c, n in _top_cat_90.items()))
+            st.markdown(" | ".join(_cols_90) if _cols_90 else "Dettagli nel tab Scadenze")
+    if _n365 > _n90:
+        with st.expander(f"🟡 {_n365} contratti in scadenza entro 12 mesi (€{_v365/1e6:.1f}M)", expanded=False):
+            _cols_365 = []
+            if _comune_col_alert:
+                _top_comuni_365 = _alert_valid.loc[_alert_valid['giorni'].between(-30, 365)].groupby(_comune_col_alert).size().nlargest(5)
+                _cols_365.append("**Top comuni:** " + ", ".join(f"{c} ({n})" for c, n in _top_comuni_365.items()))
+            if _cat_col_alert:
+                _top_cat_365 = _alert_valid.loc[_alert_valid['giorni'].between(-30, 365)].groupby(_cat_col_alert).size().nlargest(3)
+                _cols_365.append("**Top categorie:** " + ", ".join(f"{c} ({n})" for c, n in _top_cat_365.items()))
+            st.markdown(" | ".join(_cols_365) if _cols_365 else "Dettagli nel tab Scadenze")
+except Exception:
+    pass  # Alert non bloccante: se fallisce, la dashboard continua
 
 # ==================== TAB NAVIGATION (CLUSTER UI) ====================
 st.markdown("---")
@@ -4785,6 +4962,7 @@ if tab11:
             'buyer_name', 'ente_appaltante',
             'supplier_name', 'aggiudicatario',
             'comune', 'buyer_locality', 'regione',
+            'oggetto',
             'award_amount', 'importo_aggiudicazione',
             'award_date', 'data_aggiudicazione',
             'data_scadenza', 'durata_appalto',
@@ -4833,6 +5011,27 @@ if tab11:
         else:
             d['durata_giorni_dataset'] = np.nan
         d['scadenza_da_durata_appalto'] = d['award_date'] + pd.to_timedelta(d['durata_giorni_dataset'], unit='D')
+
+        # (3.5) Regex extraction da oggetto (titolo gara)
+        d['scadenza_da_regex'] = pd.NaT
+        if 'oggetto' in d.columns:
+            obj = d['oggetto'].fillna('').astype(str)
+            # Pattern: "durata X mesi/anni/giorni" o "X mesi/anni"
+            dur_match = obj.str.extract(r'(?:durata\s*[:\s]?\s*)?(\d+)\s*(mes[ei]|ann[oi]|giorn[oi])', flags=re.IGNORECASE, expand=True)
+            dur_num = pd.to_numeric(dur_match[0], errors='coerce')
+            dur_unit = dur_match[1].str.lower().str[:3]
+            dur_days = np.where(dur_unit == 'mes', dur_num * 30, np.where(dur_unit == 'ann', dur_num * 365, dur_num))
+            dur_days_series = pd.Series(dur_days, index=d.index, dtype='float64')
+            d['scadenza_da_regex'] = d['award_date'] + pd.to_timedelta(dur_days_series, unit='D')
+            # Pattern implicito: triennale, biennale, quinquennale, ecc.
+            still_nat = d['scadenza_da_regex'].isna()
+            implicit = obj.str.extract(r'(triennal|biennal|quinquennal|quadriennal|settennal|novennal)', flags=re.IGNORECASE, expand=False)
+            implicit_map = {'triennal': 3, 'biennal': 2, 'quinquennal': 5, 'quadriennal': 4, 'settennal': 7, 'novennal': 9}
+            implicit_years = implicit.str.lower().map(implicit_map)
+            implicit_days = implicit_years * 365
+            d.loc[still_nat & implicit_days.notna(), 'scadenza_da_regex'] = (
+                d.loc[still_nat & implicit_days.notna(), 'award_date'] + pd.to_timedelta(implicit_days[still_nat & implicit_days.notna()], unit='D')
+            )
 
         # (4) enrichment LLM (da cache) - scadenza base/max se disponibili
         d['scadenza_base_llm'] = pd.NaT
@@ -4887,16 +5086,19 @@ if tab11:
         # (5) stima da categoria (fallback)
         if include_stime:
             durate_stimate = {
-                'Servizio Luce': 9,
-                'Manutenzione': 4,
-                'Pulizie': 3,
-                'Riscaldamento': 7,
-                'Vigilanza': 3,
-                'Facchinaggio': 3,
-                'Verde': 3,
-                'Traslochi': 2,
-                'Portierato': 3,
-                'Disinfestazione': 2
+                'Servizio Luce': 9, 'Illuminazione': 9,
+                'Manutenzione': 4, 'Infrastrutture': 5,
+                'Strade': 5, 'Edifici': 5, 'Scuole': 5,
+                'Pulizie': 3, 'Riscaldamento': 7, 'Energia': 7, 'Termici': 7,
+                'Vigilanza': 3, 'Videosorveglianza': 4,
+                'Facchinaggio': 3, 'Verde': 3, 'Ambiente': 4,
+                'Traslochi': 2, 'Portierato': 3, 'Disinfestazione': 2,
+                'Rifiuti': 5, 'Acqua': 5, 'Acquedotti': 5,
+                'Trasporti': 4, 'Mobilita': 4, 'Parcheggi': 5,
+                'ICT': 3, 'Digitale': 3, 'Smart': 3,
+                'Sanitario': 4, 'Sociale': 3, 'Formazione': 2,
+                'Strutture Sportive': 5, 'Strutture_Sportive': 5, 'Gallerie': 5, 'Tunnel': 5,
+                'Impianti': 5, 'Ricarica': 5, 'Colonnine': 5,
             }
 
             def get_durata_anni(cat):
@@ -4919,11 +5121,12 @@ if tab11:
             d['durata_anni_stima'] = np.nan
             d['scadenza_stimata'] = pd.NaT
 
-        # Scadenza finale (priorità)
+        # Scadenza finale (priorità: esplicita > CONSIP > durata > regex > LLM > stima)
         d['scadenza_contratto'] = (
             d['scadenza_da_data_scadenza']
             .fillna(d['scadenza_consip'])
             .fillna(d['scadenza_da_durata_appalto'])
+            .fillna(d['scadenza_da_regex'])
             .fillna(d['scadenza_base_llm'])
             .fillna(d['scadenza_stimata'])
         )
@@ -4934,6 +5137,7 @@ if tab11:
                 d['scadenza_da_data_scadenza'].notna(),
                 d['scadenza_consip'].notna(),
                 d['scadenza_da_durata_appalto'].notna(),
+                d['scadenza_da_regex'].notna(),
                 d['scadenza_base_llm'].notna(),
                 d['scadenza_stimata'].notna()
             ],
@@ -4941,6 +5145,7 @@ if tab11:
                 'data_scadenza',
                 'consip',
                 'durata_appalto',
+                'regex_oggetto',
                 'llm',
                 'stima_categoria'
             ],
@@ -5187,6 +5392,88 @@ if tab11:
                             'Giorni a prossima scadenza'
                         ]
                         show_dataframe(display, label="scadenze_summary_by_area", use_container_width=True, hide_index=True)
+
+                    # ===== MAPPA A BOLLE SCADENZE =====
+                    if len(summary) > 0 and raggruppa == "Comune" and _geo_lookup:
+                        st.markdown("#### 🗺️ Mappa Scadenze per Comune")
+                        map_df = summary.copy()
+                        # Geocode comuni tramite ISTAT lookup
+                        coords = map_df[group_col].apply(lambda x: _geocode_comune(x, _geo_lookup))
+                        map_df['lat'] = coords.apply(lambda c: c[0] if c else None)
+                        map_df['lon'] = coords.apply(lambda c: c[1] if c else None)
+                        map_df = map_df.dropna(subset=['lat', 'lon'])
+
+                        if len(map_df) > 0:
+                            # Colore: urgenza basata su giorni alla prossima scadenza
+                            map_df['urgenza'] = map_df['giorni_alla_prossima_scadenza'].clip(0, horizon_days)
+                            # Dimensione: numero scadenze entro orizzonte (min 3 per visibilità)
+                            map_df['size'] = map_df['scadenze_entro_orizzonte'].clip(lower=1)
+                            # Hover: info dettagliate
+                            map_df['hover_text'] = (
+                                map_df[group_col] + '<br>'
+                                + 'Contratti: ' + map_df['contratti'].astype(str) + '<br>'
+                                + 'Scadenze entro ' + str(max_anni) + 'a: ' + map_df['scadenze_entro_orizzonte'].astype(str) + '<br>'
+                                + 'Prossima: ' + map_df['prossima_scadenza'].dt.strftime('%d/%m/%Y').fillna('-')
+                            )
+
+                            fig_map = px.scatter_map(
+                                map_df,
+                                lat='lat',
+                                lon='lon',
+                                size='size',
+                                color='urgenza',
+                                hover_name=group_col,
+                                hover_data={
+                                    'contratti': True,
+                                    'scadenze_entro_orizzonte': True,
+                                    'scadenze_12m': True,
+                                    'urgenza': False,
+                                    'size': False,
+                                    'lat': False,
+                                    'lon': False,
+                                },
+                                color_continuous_scale=['#d32f2f', '#ff9800', '#fdd835', '#66bb6a'],
+                                size_max=40,
+                                zoom=5,
+                                center={'lat': 42.0, 'lon': 12.5},
+                            )
+                            fig_map.update_layout(
+                                height=550,
+                                margin={"r": 0, "t": 0, "l": 0, "b": 0},
+                                coloraxis_colorbar_title="Giorni a scadenza",
+                            )
+                            st.plotly_chart(fig_map, use_container_width=True)
+                            st.caption(f"Comuni mappati: {len(map_df)} su {len(summary)} ({len(map_df)/max(1,len(summary))*100:.0f}%)")
+                        else:
+                            st.info("📍 Nessun comune con coordinate disponibili per la mappa.")
+
+                    elif len(summary) > 0 and raggruppa == "Regione" and _geo_lookup:
+                        st.markdown("#### 🗺️ Mappa Scadenze per Regione")
+                        regioni_coords = {
+                            'Lombardia': (45.47, 9.85), 'Lazio': (41.89, 12.48), 'Campania': (40.83, 14.25),
+                            'Sicilia': (37.60, 14.02), 'Veneto': (45.43, 11.87), 'Emilia-Romagna': (44.49, 11.34),
+                            'Piemonte': (45.05, 7.52), 'Puglia': (41.12, 16.87), 'Toscana': (43.41, 11.22),
+                            'Calabria': (38.91, 16.59), 'Sardegna': (40.12, 9.01), 'Liguria': (44.32, 8.40),
+                            'Marche': (43.62, 13.52), 'Abruzzo': (42.35, 13.39), 'Friuli-Venezia Giulia': (45.64, 13.80),
+                            'Trentino-Alto Adige': (46.50, 11.35), 'Umbria': (42.94, 12.62), 'Basilicata': (40.64, 15.81),
+                            'Molise': (41.56, 14.66), "Valle d'Aosta": (45.74, 7.32),
+                        }
+                        map_df = summary.copy()
+                        map_df['lat'] = map_df[group_col].map(lambda x: regioni_coords.get(x, (None, None))[0])
+                        map_df['lon'] = map_df[group_col].map(lambda x: regioni_coords.get(x, (None, None))[1])
+                        map_df = map_df.dropna(subset=['lat', 'lon'])
+                        if len(map_df) > 0:
+                            map_df['urgenza'] = map_df['giorni_alla_prossima_scadenza'].clip(0, horizon_days)
+                            map_df['size'] = map_df['scadenze_entro_orizzonte'].clip(lower=1)
+                            fig_map = px.scatter_map(
+                                map_df, lat='lat', lon='lon', size='size', color='urgenza',
+                                hover_name=group_col,
+                                hover_data={'contratti': True, 'scadenze_entro_orizzonte': True, 'urgenza': False, 'size': False, 'lat': False, 'lon': False},
+                                color_continuous_scale=['#d32f2f', '#ff9800', '#fdd835', '#66bb6a'],
+                                size_max=60, zoom=5, center={'lat': 42.0, 'lon': 12.5},
+                            )
+                            fig_map.update_layout(height=550, margin={"r": 0, "t": 0, "l": 0, "b": 0}, coloraxis_colorbar_title="Giorni a scadenza")
+                            st.plotly_chart(fig_map, use_container_width=True)
 
                     if len(summary) > 0:
                         # Drilldown per area

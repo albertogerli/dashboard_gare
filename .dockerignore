@@ -1,0 +1,39 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test e docs
+tests/
+docs/
+*.md
+!README.md
+
+# File temporanei
+*.log
+*.tmp
+.cache/
+
+# Claude/Cowork
+.claude/
