@@ -1,11 +1,11 @@
 {
   "kpi": {
     "totale_gare": 131952,
-    "valore_totale": 39385244091.21,
+    "valore_totale": 39385244091.20999,
     "aggiudicatari_unici": 40935,
     "comuni_coinvolti": 12422,
     "gare_consip": 923,
-    "sconto_medio": 39.99639081198623,
+    "sconto_medio": 39.99639081198624,
     "partecipanti_medi": 2.521416878865042
   },
   "consip": {
@@ -201,14 +201,14 @@
     {
       "Categoria_Main": "STRADE_INFRASTRUTTURE",
       "num_gare": 34195,
-      "valore": 13459514770.2,
-      "sconto_medio": 38.04694292648081,
+      "valore": 13459514770.199999,
+      "sconto_medio": 38.04694292648082,
       "partecipanti_medi": 2.6660038017253984
     },
     {
       "Categoria_Main": "ILLUMINAZIONE",
       "num_gare": 26055,
-      "valore": 3264713359.86,
+      "valore": 3264713359.859999,
       "sconto_medio": 37.016421098608326,
       "partecipanti_medi": 2.392899635386682
     },
@@ -216,27 +216,27 @@
       "Categoria_Main": "EDIFICI_PUBBLICI",
       "num_gare": 24397,
       "valore": 10393839629.28,
-      "sconto_medio": 42.05828658757467,
+      "sconto_medio": 42.05828658757466,
       "partecipanti_medi": 2.640734516538919
     },
     {
       "Categoria_Main": "ENERGIA",
       "num_gare": 15809,
-      "valore": 1727879177.7600002,
-      "sconto_medio": 43.810301372614234,
+      "valore": 1727879177.76,
+      "sconto_medio": 43.81030137261424,
       "partecipanti_medi": 2.27667784173572
     },
     {
       "Categoria_Main": "RIFIUTI",
       "num_gare": 10189,
       "valore": 4858407388.81,
-      "sconto_medio": 48.872669011946336,
+      "sconto_medio": 48.87266901194634,
       "partecipanti_medi": 2.44734517617038
     },
     {
       "Categoria_Main": "VERDE_PUBBLICO",
       "num_gare": 9936,
-      "valore": 2053456189.57,
+      "valore": 2053456189.5699997,
       "sconto_medio": 36.63901342796979,
       "partecipanti_medi": 2.4829911433172303
     },
@@ -272,8 +272,8 @@
   "category_hierarchy": {
     "STRADE_INFRASTRUTTURE": {
       "num_gare": 34195,
-      "valore": 13459514770.2,
-      "sconto_medio": 38.04694292648081,
+      "valore": 13459514770.199999,
+      "sconto_medio": 38.04694292648082,
       "partecipanti_medi": 2.6660038017253984,
       "sottocategorie": [
         {
@@ -321,7 +321,7 @@
     "EDIFICI_PUBBLICI": {
       "num_gare": 24397,
       "valore": 10393839629.28,
-      "sconto_medio": 42.05828658757467,
+      "sconto_medio": 42.05828658757466,
       "partecipanti_medi": 2.640734516538919,
       "sottocategorie": [
         {
@@ -368,7 +368,7 @@
     },
     "VERDE_PUBBLICO": {
       "num_gare": 9936,
-      "valore": 2053456189.57,
+      "valore": 2053456189.5699997,
       "sconto_medio": 36.63901342796979,
       "partecipanti_medi": 2.4829911433172303,
       "sottocategorie": [
@@ -417,7 +417,7 @@
     "RIFIUTI": {
       "num_gare": 10189,
       "valore": 4858407388.81,
-      "sconto_medio": 48.872669011946336,
+      "sconto_medio": 48.87266901194634,
       "partecipanti_medi": 2.44734517617038,
       "sottocategorie": [
         {
@@ -560,7 +560,7 @@
     },
     "ILLUMINAZIONE": {
       "num_gare": 26055,
-      "valore": 3264713359.86,
+      "valore": 3264713359.859999,
       "sconto_medio": 37.016421098608326,
       "partecipanti_medi": 2.392899635386682,
       "sottocategorie": [
@@ -656,8 +656,8 @@
     },
     "ENERGIA": {
       "num_gare": 15809,
-      "valore": 1727879177.7600002,
-      "sconto_medio": 43.810301372614234,
+      "valore": 1727879177.76,
+      "sconto_medio": 43.81030137261424,
       "partecipanti_medi": 2.27667784173572,
       "sottocategorie": [
         {
@@ -860,7 +860,7 @@
       "anno": 2020,
       "media": 6.794849781326025,
       "mediana": 0.0,
-      "std": 14.978233324260422,
+      "std": 14.978233324260414,
       "count": 74,
       "partecipanti_medi": 2.8783783783783785
     },
@@ -868,23 +868,23 @@
       "anno": 2021,
       "media": 10.132372111700438,
       "mediana": 3.9951574559871377,
-      "std": 14.84553262125438,
+      "std": 14.845532621253916,
       "count": 15647,
       "partecipanti_medi": 3.142774972838244
     },
     {
       "anno": 2022,
-      "media": 10.177028291503664,
+      "media": 10.177028291503662,
       "mediana": 3.3403359511782913,
-      "std": 15.847964474894377,
+      "std": 15.847964474893987,
       "count": 16760,
       "partecipanti_medi": 3.180489260143198
     },
     {
       "anno": 2023,
-      "media": 9.525807902679242,
+      "media": 9.52580790267924,
       "mediana": 3.129784651215528,
-      "std": 15.182381620521184,
+      "std": 15.182381620521635,
       "count": 18723,
       "partecipanti_medi": 3.275596859477648
     },
@@ -892,7 +892,7 @@
       "anno": 2024,
       "media": 2.1333205848858996,
       "mediana": 0.0,
-      "std": 10.161064329291975,
+      "std": 10.16106432929591,
       "count": 26381,
       "partecipanti_medi": 2.9901823281907434
     },
@@ -900,7 +900,7 @@
       "anno": 2025,
       "media": 2.5733975822987674,
       "mediana": 0.0,
-      "std": 9.437642976685332,
+      "std": 9.437642976684684,
       "count": 8503,
       "partecipanti_medi": 3.074914735975538
     },
@@ -1198,7 +1198,7 @@
       "categoria": "STRADE_INFRASTRUTTURE",
       "media": 7.772955164988709,
       "mediana": 0.0,
-      "std": 17.10350279587464,
+      "std": 17.103502795874647,
       "count": 41,
       "partecipanti_medi": 2.7804878048780486
     },
@@ -1225,7 +1225,7 @@
       "categoria": "ACQUA_FOGNATURE",
       "media": 12.648220628085552,
       "mediana": 3.3214371080921765,
-      "std": 19.55356460346105,
+      "std": 19.553564603461094,
       "count": 633,
       "partecipanti_medi": 3.375987361769352
     },
@@ -1234,7 +1234,7 @@
       "categoria": "EDIFICI_PUBBLICI",
       "media": 9.96672506666835,
       "mediana": 4.227058431072582,
-      "std": 13.580671631269329,
+      "std": 13.580671631269269,
       "count": 3455,
       "partecipanti_medi": 3.101013024602026
     },
@@ -1243,7 +1243,7 @@
       "categoria": "ENERGIA",
       "media": 10.209212606719639,
       "mediana": 3.9397386809545196,
-      "std": 14.491540681110251,
+      "std": 14.491540681110237,
       "count": 1493,
       "partecipanti_medi": 3.0763563295378433
     },
@@ -1252,7 +1252,7 @@
       "categoria": "ILLUMINAZIONE",
       "media": 11.377940894399835,
       "mediana": 4.779432612792654,
-      "std": 15.914606123218944,
+      "std": 15.914606123219,
       "count": 2762,
       "partecipanti_medi": 3.0380159304851557
     },
@@ -1261,7 +1261,7 @@
       "categoria": "MOBILITA_ELETTRICA",
       "media": 3.181287754601735,
       "mediana": 0.09999999999999795,
-      "std": 8.931547054592293,
+      "std": 8.93154705459229,
       "count": 37,
       "partecipanti_medi": 3.135135135135135
     },
@@ -1270,7 +1270,7 @@
       "categoria": "RIFIUTI",
       "media": 10.199376425214414,
       "mediana": 0.0,
-      "std": 20.585843818410346,
+      "std": 20.585843818410382,
       "count": 691,
       "partecipanti_medi": 3.191027496382055
     },
@@ -1279,7 +1279,7 @@
       "categoria": "SMART_CITY",
       "media": 8.070028151229835,
       "mediana": 0.0010007208069682779,
-      "std": 19.36030774485903,
+      "std": 19.360307744859018,
       "count": 61,
       "partecipanti_medi": 3.2131147540983607
     },
@@ -1288,7 +1288,7 @@
       "categoria": "STRADE_INFRASTRUTTURE",
       "media": 8.990048753243595,
       "mediana": 4.4153084198415655,
-      "std": 12.566363309314058,
+      "std": 12.56636330931414,
       "count": 5664,
       "partecipanti_medi": 3.198975988700565
     },
@@ -1297,7 +1297,7 @@
       "categoria": "VERDE_PUBBLICO",
       "media": 13.312010784788933,
       "mediana": 1.666161799730577,
-      "std": 21.226050213114352,
+      "std": 21.22605021311442,
       "count": 603,
       "partecipanti_medi": 3.2388059701492535
     },
@@ -1306,7 +1306,7 @@
       "categoria": "VIDEOSORVEGLIANZA",
       "media": 11.385460357594594,
       "mediana": 3.9175140371647106,
-      "std": 13.98840577719414,
+      "std": 13.988405777194144,
       "count": 248,
       "partecipanti_medi": 3.028225806451613
     },
@@ -1315,7 +1315,7 @@
       "categoria": "ACQUA_FOGNATURE",
       "media": 12.135075430262752,
       "mediana": 1.8541944036102898,
-      "std": 20.693776310801436,
+      "std": 20.6937763108014,
       "count": 786,
       "partecipanti_medi": 3.440203562340967
     },
@@ -1324,7 +1324,7 @@
       "categoria": "EDIFICI_PUBBLICI",
       "media": 11.188396508358423,
       "mediana": 4.867963026129645,
-      "std": 15.187626277045032,
+      "std": 15.187626277045009,
       "count": 2816,
       "partecipanti_medi": 3.176491477272727
     },
@@ -1333,7 +1333,7 @@
       "categoria": "ENERGIA",
       "media": 8.223814836172302,
       "mediana": 2.182933001587469,
-      "std": 14.268829148179815,
+      "std": 14.268829148179886,
       "count": 2054,
       "partecipanti_medi": 3.076923076923077
     },
@@ -1342,7 +1342,7 @@
       "categoria": "ILLUMINAZIONE",
       "media": 9.250321235170084,
       "mediana": 2.8854961832061066,
-      "std": 14.27766429393355,
+      "std": 14.277664293933663,
       "count": 3021,
       "partecipanti_medi": 3.0552797087057266
     },
@@ -1360,7 +1360,7 @@
       "categoria": "RIFIUTI",
       "media": 14.027633060608068,
       "mediana": 0.20699053491416855,
-      "std": 23.739666184803625,
+      "std": 23.739666184803426,
       "count": 878,
       "partecipanti_medi": 3.2539863325740317
     },
@@ -1369,7 +1369,7 @@
       "categoria": "SMART_CITY",
       "media": 6.912051098728361,
       "mediana": 0.0,
-      "std": 16.45655401261847,
+      "std": 16.45655401261848,
       "count": 81,
       "partecipanti_medi": 3.4814814814814814
     },
@@ -1378,7 +1378,7 @@
       "categoria": "STRADE_INFRASTRUTTURE",
       "media": 9.33975837812301,
       "mediana": 4.044029877525098,
-      "std": 13.78101203046836,
+      "std": 13.781012030468252,
       "count": 6008,
       "partecipanti_medi": 3.2381824234354193
     },
@@ -1387,7 +1387,7 @@
       "categoria": "VERDE_PUBBLICO",
       "media": 15.124690329043611,
       "mediana": 3.942857142857143,
-      "std": 21.755656181688458,
+      "std": 21.75565618168837,
       "count": 799,
       "partecipanti_medi": 3.178973717146433
     },
@@ -1405,7 +1405,7 @@
       "categoria": "ACQUA_FOGNATURE",
       "media": 13.0797833828568,
       "mediana": 2.095031514042349,
-      "std": 21.84627100549266,
+      "std": 21.84627100549257,
       "count": 712,
       "partecipanti_medi": 3.571629213483146
     },
@@ -1414,7 +1414,7 @@
       "categoria": "EDIFICI_PUBBLICI",
       "media": 10.319339232334928,
       "mediana": 5.329321875729563,
-      "std": 13.959946101288672,
+      "std": 13.959946101288576,
       "count": 5443,
       "partecipanti_medi": 3.4932941392614367
     },
@@ -1423,7 +1423,7 @@
       "categoria": "ENERGIA",
       "media": 7.262127699320377,
       "mediana": 1.9661138882679379,
-      "std": 12.910402668676738,
+      "std": 12.910402668676694,
       "count": 2346,
       "partecipanti_medi": 3.061381074168798
     },
@@ -1432,7 +1432,7 @@
       "categoria": "ILLUMINAZIONE",
       "media": 7.825227911031984,
       "mediana": 1.9999915664773424,
-      "std": 13.364105567910315,
+      "std": 13.364105567910377,
       "count": 3010,
       "partecipanti_medi": 3.0428571428571427
     },
@@ -1441,7 +1441,7 @@
       "categoria": "MOBILITA_ELETTRICA",
       "media": 8.762349660953442,
       "mediana": 0.0,
-      "std": 21.628485876067923,
+      "std": 21.62848587606793,
       "count": 62,
       "partecipanti_medi": 3.129032258064516
     },
@@ -1450,7 +1450,7 @@
       "categoria": "RIFIUTI",
       "media": 13.193756996065796,
       "mediana": 0.0,
-      "std": 23.570448453549368,
+      "std": 23.57044845354922,
       "count": 918,
       "partecipanti_medi": 3.233115468409586
     },
@@ -1459,7 +1459,7 @@
       "categoria": "SMART_CITY",
       "media": 7.683990302743715,
       "mediana": 0.0,
-      "std": 16.485099565153163,
+      "std": 16.485099565153156,
       "count": 149,
       "partecipanti_medi": 3.751677852348993
     },
@@ -1468,7 +1468,7 @@
       "categoria": "STRADE_INFRASTRUTTURE",
       "media": 9.037529515358294,
       "mediana": 3.559900000000004,
-      "std": 13.607815269357092,
+      "std": 13.607815269357193,
       "count": 4951,
       "partecipanti_medi": 3.2569177943849725
     },
@@ -1477,7 +1477,7 @@
       "categoria": "VERDE_PUBBLICO",
       "media": 13.285641274553827,
       "mediana": 1.9541108802377576,
-      "std": 21.371846578773475,
+      "std": 21.37184657877356,
       "count": 861,
       "partecipanti_medi": 3.186991869918699
     },
@@ -1486,7 +1486,7 @@
       "categoria": "VIDEOSORVEGLIANZA",
       "media": 8.830200352581492,
       "mediana": 0.5099586259982681,
-      "std": 17.002594402270873,
+      "std": 17.0025944022709,
       "count": 271,
       "partecipanti_medi": 3.103321033210332
     },
@@ -1495,7 +1495,7 @@
       "categoria": "ACQUA_FOGNATURE",
       "media": 3.7231917375379693,
       "mediana": 0.0,
-      "std": 13.836761188246433,
+      "std": 13.836761188246053,
       "count": 1203,
       "partecipanti_medi": 3.173732335827099
     },
@@ -1504,7 +1504,7 @@
       "categoria": "EDIFICI_PUBBLICI",
       "media": 4.814731617989539,
       "mediana": 0.0,
-      "std": 14.071647029861714,
+      "std": 14.071647029862225,
       "count": 2924,
       "partecipanti_medi": 3.012311901504788
     },
@@ -1513,7 +1513,7 @@
       "categoria": "ENERGIA",
       "media": 1.1849844354906791,
       "mediana": 0.0,
-      "std": 7.046908952234949,
+      "std": 7.0469089522349915,
       "count": 2971,
       "partecipanti_medi": 2.97307303938068
     },
@@ -1522,7 +1522,7 @@
       "categoria": "ILLUMINAZIONE",
       "media": 0.6855969422986553,
       "mediana": 0.0,
-      "std": 6.047870667020143,
+      "std": 6.047870667020746,
       "count": 7017,
       "partecipanti_medi": 2.9351574747042894
     },
@@ -1531,7 +1531,7 @@
       "categoria": "MOBILITA_ELETTRICA",
       "media": 3.876420280012745,
       "mediana": 0.0,
-      "std": 16.041392900277277,
+      "std": 16.041392900277323,
       "count": 91,
       "partecipanti_medi": 2.967032967032967
     },
@@ -1540,7 +1540,7 @@
       "categoria": "RIFIUTI",
       "media": 3.3757971283858965,
       "mediana": 0.0,
-      "std": 14.2188476141413,
+      "std": 14.218847614141783,
       "count": 2227,
       "partecipanti_medi": 2.9726088908845982
     },
@@ -1549,7 +1549,7 @@
       "categoria": "SMART_CITY",
       "media": 0.8798476381528,
       "mediana": 0.0,
-      "std": 6.7758153879018925,
+      "std": 6.775815387901971,
       "count": 405,
       "partecipanti_medi": 3.3753086419753084
     },
@@ -1558,7 +1558,7 @@
       "categoria": "STRADE_INFRASTRUTTURE",
       "media": 3.458263404322006,
       "mediana": 0.0,
-      "std": 11.787861351459844,
+      "std": 11.787861351458979,
       "count": 4870,
       "partecipanti_medi": 3.0388090349075974
     },
@@ -1567,7 +1567,7 @@
       "categoria": "VERDE_PUBBLICO",
       "media": 1.077473074275114,
       "mediana": 0.0,
-      "std": 8.539301736712726,
+      "std": 8.53930173671295,
       "count": 3290,
       "partecipanti_medi": 2.961094224924012
     },
@@ -1576,7 +1576,7 @@
       "categoria": "VIDEOSORVEGLIANZA",
       "media": 0.6095489974540073,
       "mediana": 0.0,
-      "std": 5.665309339305071,
+      "std": 5.6653093393052725,
       "count": 1383,
       "partecipanti_medi": 2.9146782357194505
     },
@@ -1585,7 +1585,7 @@
       "categoria": "ACQUA_FOGNATURE",
       "media": 3.7979203537195274,
       "mediana": 0.0,
-      "std": 12.534274678950236,
+      "std": 12.534274678950316,
       "count": 492,
       "partecipanti_medi": 3.3719512195121952
     },
@@ -1594,7 +1594,7 @@
       "categoria": "EDIFICI_PUBBLICI",
       "media": 5.72055981151828,
       "mediana": 0.0,
-      "std": 12.553838364636006,
+      "std": 12.553838364636105,
       "count": 1155,
       "partecipanti_medi": 3.0562770562770565
     },
@@ -1603,7 +1603,7 @@
       "categoria": "ENERGIA",
       "media": 2.594368886903368,
       "mediana": 0.0,
-      "std": 10.654272860453098,
+      "std": 10.654272860453204,
       "count": 752,
       "partecipanti_medi": 3.038563829787234
     },
@@ -1612,7 +1612,7 @@
       "categoria": "ILLUMINAZIONE",
       "media": 0.6546186942546984,
       "mediana": 0.0,
-      "std": 4.590746371734654,
+      "std": 4.590746371734579,
       "count": 1593,
       "partecipanti_medi": 3.0037664783427496
     },
@@ -1621,7 +1621,7 @@
       "categoria": "MOBILITA_ELETTRICA",
       "media": 0.25941824133313496,
       "mediana": 0.0,
-      "std": 1.2448973543092965,
+      "std": 1.2448973543092947,
       "count": 44,
       "partecipanti_medi": 3.090909090909091
     },
@@ -1630,7 +1630,7 @@
       "categoria": "RIFIUTI",
       "media": 1.2992707285873453,
       "mediana": 0.0,
-      "std": 8.37585541133414,
+      "std": 8.375855411334298,
       "count": 956,
       "partecipanti_medi": 3.0460251046025104
     },
@@ -1639,7 +1639,7 @@
       "categoria": "SMART_CITY",
       "media": 0.32507932417902474,
       "mediana": 0.0,
-      "std": 2.225347625474239,
+      "std": 2.225347625474238,
       "count": 155,
       "partecipanti_medi": 2.9935483870967743
     },
@@ -1648,7 +1648,7 @@
       "categoria": "STRADE_INFRASTRUTTURE",
       "media": 4.472905573919993,
       "mediana": 0.0,
-      "std": 11.186913164760906,
+      "std": 11.186913164760748,
       "count": 1764,
       "partecipanti_medi": 3.1564625850340136
     },
@@ -1657,7 +1657,7 @@
       "categoria": "VERDE_PUBBLICO",
       "media": 0.9383424543171942,
       "mediana": 0.0,
-      "std": 6.934869455807129,
+      "std": 6.934869455807184,
       "count": 1143,
       "partecipanti_medi": 3.024496937882765
     },
@@ -1666,7 +1666,7 @@
       "categoria": "VIDEOSORVEGLIANZA",
       "media": 0.3396785875734801,
       "mediana": 0.0,
-      "std": 2.96561301213802,
+      "std": 2.9656130121380486,
       "count": 449,
       "partecipanti_medi": 3.0066815144766146
     },
@@ -1685,13 +1685,13 @@
       "Regione": "Lazio",
       "num_gare": 12523,
       "valore": 9942458494.43,
-      "sconto_medio": 40.119057660604845
+      "sconto_medio": 40.11905766060485
     },
     {
       "Regione": "Lombardia",
       "num_gare": 16033,
-      "valore": 4200799847.3299994,
-      "sconto_medio": 24.14124963278725
+      "valore": 4200799847.3300004,
+      "sconto_medio": 24.141249632787247
     },
     {
       "Regione": "Campania",
@@ -1709,12 +1709,12 @@
       "Regione": "Veneto",
       "num_gare": 9627,
       "valore": 2536863040.01,
-      "sconto_medio": 25.962366245935954
+      "sconto_medio": 25.96236624593596
     },
     {
       "Regione": "Piemonte",
       "num_gare": 9519,
-      "valore": 2158645292.1100006,
+      "valore": 2158645292.11,
       "sconto_medio": 31.230985549702
     },
     {
@@ -1809,7 +1809,7 @@
       "lng": 12.4964,
       "num_gare": 8928,
       "valore": 9324875602.419998,
-      "sconto_medio": 42.32432189954786
+      "sconto_medio": 42.32432189954787
     },
     {
       "citta": "NAPOLI",
