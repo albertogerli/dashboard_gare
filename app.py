@@ -1650,19 +1650,21 @@ if 'regione' in raw_df.columns:
 
 # Backfill regione da ISTAT (per record con comune ma senza regione)
 if _regione_lookup and 'comune' in raw_df.columns:
-    missing_regione = raw_df['regione'].isna() | raw_df['regione'].astype(str).isin(['nan', '', 'None'])
+    # Converti a string per evitare errori con CategoricalDtype durante il backfill
+    raw_df['regione'] = raw_df['regione'].astype(str)
+    missing_regione = raw_df['regione'].isin(['nan', '', 'None', '<NA>']) | raw_df['regione'].isna()
     if missing_regione.any():
         comuni_norm = raw_df.loc[missing_regione, 'comune'].apply(_normalize_comune_name)
         regioni_fill = comuni_norm.map(_regione_lookup)
         raw_df.loc[missing_regione, 'regione'] = regioni_fill
         # Se anche buyer_locality presente, usa come fallback
         if 'buyer_locality' in raw_df.columns:
-            still_missing = raw_df['regione'].isna() | raw_df['regione'].astype(str).isin(['nan', '', 'None'])
+            still_missing = raw_df['regione'].isin(['nan', '', 'None', '<NA>']) | raw_df['regione'].isna()
             locality_norm = raw_df.loc[still_missing, 'buyer_locality'].apply(_normalize_comune_name)
             regioni_fill2 = locality_norm.map(_regione_lookup)
             raw_df.loc[still_missing, 'regione'] = regioni_fill2
-        # Riconverti a category dopo backfill
-        raw_df['regione'] = raw_df['regione'].astype(str).replace({'nan': np.nan, 'None': np.nan, '': np.nan}).astype('category')
+    # Riconverti a category dopo backfill
+    raw_df['regione'] = raw_df['regione'].replace({'nan': np.nan, 'None': np.nan, '': np.nan, '<NA>': np.nan}).astype('category')
 
 # Normalizza procedure (estrai nome pulito da formato "COD:XX ; TITLE:Nome")
 if 'procedura' in raw_df.columns:
