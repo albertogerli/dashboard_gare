@@ -1790,7 +1790,7 @@ anno_sel = st.sidebar.selectbox("📅 Anno", anni, format_func=lambda x: "Tutti 
 
 # Regione filter (selectbox - molte opzioni)
 if 'regione' in raw_df.columns and raw_df['regione'].notna().any():
-    regioni_df = sorted(raw_df['regione'].dropna().unique().tolist())
+    regioni_df = sorted([str(r) for r in raw_df['regione'].dropna().unique() if str(r) not in ('nan', 'None', '', '<NA>')])
     regioni = [None] + regioni_df
 else:
     regioni = [None] + [r['Regione'] for r in data['geo']]
@@ -1850,7 +1850,7 @@ if fonte_sel:
 if anno_sel:
     filtered_df = filtered_df[filtered_df['anno'] == anno_sel]
 if regione_sel and 'regione' in filtered_df.columns:
-    filtered_df = filtered_df[filtered_df['regione'] == regione_sel]
+    filtered_df = filtered_df[filtered_df['regione'].astype(str) == str(regione_sel)]
 if categoria_sel:
     # Usa la nuova colonna 'categoria' normalizzata, altrimenti fallback a '_categoria'
     if 'categoria' in filtered_df.columns:
@@ -5018,13 +5018,16 @@ if tab11:
         d['scadenza_da_regex'] = pd.NaT
         if 'oggetto' in d.columns:
             obj = d['oggetto'].fillna('').astype(str)
-            # Pattern: "durata X mesi/anni/giorni" o "X mesi/anni"
-            dur_match = obj.str.extract(r'(?:durata\s*[:\s]?\s*)?(\d+)\s*(mes[ei]|ann[oi]|giorn[oi])', flags=re.IGNORECASE, expand=True)
+            # Pattern: "durata X mesi/anni/giorni" (solo con keyword "durata" per evitare falsi positivi)
+            dur_match = obj.str.extract(r'durata\s*[:\s]?\s*(\d{1,4})\s*(mes[ei]|ann[oi]|giorn[oi])', flags=re.IGNORECASE, expand=True)
             dur_num = pd.to_numeric(dur_match[0], errors='coerce')
             dur_unit = dur_match[1].str.lower().str[:3]
             dur_days = np.where(dur_unit == 'mes', dur_num * 30, np.where(dur_unit == 'ann', dur_num * 365, dur_num))
             dur_days_series = pd.Series(dur_days, index=d.index, dtype='float64')
-            d['scadenza_da_regex'] = d['award_date'] + pd.to_timedelta(dur_days_series, unit='D')
+            # Clamp: max 30 anni (10950 giorni), ignora valori assurdi
+            dur_days_series = dur_days_series.where(dur_days_series.between(1, 10950))
+            valid_dur = dur_days_series.notna() & d['award_date'].notna()
+            d.loc[valid_dur, 'scadenza_da_regex'] = d.loc[valid_dur, 'award_date'] + pd.to_timedelta(dur_days_series[valid_dur], unit='D')
             # Pattern implicito: triennale, biennale, quinquennale, ecc.
             still_nat = d['scadenza_da_regex'].isna()
             implicit = obj.str.extract(r'(triennal|biennal|quinquennal|quadriennal|settennal|novennal)', flags=re.IGNORECASE, expand=False)
