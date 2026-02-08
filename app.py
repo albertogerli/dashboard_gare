@@ -85,6 +85,16 @@ def safe_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     return df_copy
 
 
+_ILLEGAL_CHARS_RE = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')
+
+def _sanitize_for_excel(df: pd.DataFrame) -> pd.DataFrame:
+    """Remove control characters that openpyxl rejects."""
+    df = df.copy()
+    for col in df.select_dtypes(include=['object', 'string']).columns:
+        df[col] = df[col].apply(lambda v: _ILLEGAL_CHARS_RE.sub('', str(v)) if pd.notna(v) else v)
+    return df
+
+
 def show_dataframe(df: pd.DataFrame, label: str | None = None, preview_rows: int = 50, **kwargs):
     """Render a DataFrame without crashing the app (Arrow/pyarrow fail-safe).
 
@@ -2454,7 +2464,7 @@ if tab1:
             try:
                 from io import BytesIO
                 excel_buffer = BytesIO()
-                csv_export.to_excel(excel_buffer, index=False, engine='openpyxl')
+                _sanitize_for_excel(csv_export).to_excel(excel_buffer, index=False, engine='openpyxl')
                 excel_data = excel_buffer.getvalue()
                 st.download_button(
                     label=f"📥 Scarica Excel ({len(gare_regione):,} gare)".replace(",", "."),
@@ -2944,7 +2954,7 @@ if 'tab20' in locals() and tab20:
                     try:
                         from io import BytesIO
                         buf = BytesIO()
-                        results.to_excel(buf, index=False, engine='openpyxl')
+                        _sanitize_for_excel(results).to_excel(buf, index=False, engine='openpyxl')
                         st.download_button(
                             label=f"📥 Scarica Excel (tutte le {len(results):,} righe)".replace(",", "."),
                             data=buf.getvalue(),
