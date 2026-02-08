@@ -444,11 +444,12 @@ def _is_valid_cig(cig: str) -> bool:
     return bool(s) and bool(_CIG_REGEX.match(s))
 
 def _chunked_read_paths_for_gare_unificate():
-    """Return candidate paths for gare_unificate (gz or csv)."""
-    gz_path = Path(__file__).parent / "data" / "gare_unificate.csv.gz"
+    """Return candidate paths for gare_unificate (gz or csv).
+    Prefers full CSV (has testo_completo) over dashboard gz (may lack it)."""
     unified_path = Path(__file__).parent.parent / "data" / "output" / "categorie" / "gare_unificate.csv"
     old_path = Path(__file__).parent.parent / "data" / "output" / "categorie" / "gare_filtrate_tutte.csv"
-    for p in [gz_path, unified_path, old_path]:
+    gz_path = Path(__file__).parent / "data" / "gare_unificate.csv.gz"
+    for p in [unified_path, old_path, gz_path]:
         if p.exists():
             yield p
 
@@ -5187,106 +5188,109 @@ if tab11:
 
     consip_map_scadenze = _build_consip_scadenza_map(consip_exp)
 
-    # ==================== ENRICHMENT AUTOMATICO (CIG) ====================
+    # ==================== ENRICHMENT AI SCADENZE ====================
     cig_cache = load_cig_enrichment_cache()
     cig_cache_items = cig_cache.get("items", {}) if isinstance(cig_cache, dict) else {}
 
-    st.subheader("✨ Enrichment automatico (CIG)")
-    with st.expander("Configura ed esegui enrichment (LLM gpt-5-nano)", expanded=False):
-        try:
-            enable_llm = st.checkbox("Abilita enrichment LLM", value=False, key="cig_enrich_enable")
-            use_web = st.checkbox("Abilita fallback web (solo URL nel testo)", value=False, key="cig_enrich_web")
-            batch_size = st.selectbox("Batch per click", [50, 200, 1000], index=0, key="cig_enrich_batch")
-            only_missing = st.checkbox("Solo scadenze mancanti/invalid", value=True, key="cig_enrich_only_missing")
-            force_refresh = st.checkbox("Forza refresh cache", value=False, key="cig_enrich_force")
-            ttl_days = st.number_input("TTL cache (giorni)", min_value=1, max_value=365, value=CIG_ENRICHMENT_TTL_DAYS_DEFAULT, key="cig_enrich_ttl")
-            manual_cigs = st.text_input("CIG manuali (separati da virgola/spazio, opzionale)", value="", key="cig_enrich_manual")
+    st.subheader("🔄 Arricchimento scadenze via AI")
+    try:
+        # Calcola candidati (senza stime) per mostrare conteggio
+        df_for_candidates = _compute_scadenze_contratti(
+            filtered_df, consip_map_scadenze, include_stime=False,
+            cig_enrichment_items=cig_cache_items
+        )
+        candidates = []
+        n_cached = 0
+        if df_for_candidates is not None and len(df_for_candidates) > 0:
+            base_mask = df_for_candidates['cig'].fillna('').astype(str).str.strip().apply(_is_valid_cig)
+            miss = df_for_candidates['scadenza_contratto'].isna() | df_for_candidates['scadenza_fonte'].isin(['mancante', 'invalid'])
+            candidates = (
+                df_for_candidates.loc[base_mask & miss, 'cig']
+                .dropna().astype(str).str.strip().str.upper().unique().tolist()
+            )
+            candidates.sort()
+            n_cached = sum(1 for c in candidates if c in cig_cache_items and isinstance(cig_cache_items.get(c), dict) and cig_cache_items[c].get("result"))
 
-            if enable_llm:
-                if not get_openai_api_key():
-                    st.warning("⚠️ OPENAI_API_KEY mancante: inseriscila nella sidebar (o nel .env) per usare l’enrichment.")
-                # Calcola candidati (senza stime) per evitare di “nascondere” mancanze reali
-                df_for_candidates = _compute_scadenze_contratti(
-                    filtered_df,
-                    consip_map_scadenze,
-                    include_stime=False,
-                    cig_enrichment_items=cig_cache_items
-                )
-                candidates = []
-                if df_for_candidates is not None and len(df_for_candidates) > 0:
-                    base_mask = df_for_candidates['cig'].fillna('').astype(str).str.strip().apply(_is_valid_cig)
-                    if only_missing:
-                        miss = df_for_candidates['scadenza_contratto'].isna() | df_for_candidates['scadenza_fonte'].isin(['mancante', 'invalid'])
-                    else:
-                        miss = pd.Series([True] * len(df_for_candidates))
+        has_key = bool(get_openai_api_key())
+        if not has_key:
+            st.info("🔑 Per arricchire le scadenze, inserisci la OpenAI API Key nella sidebar.")
+        else:
+            st.caption(f"**{len(candidates):,}** contratti senza scadenza · **{n_cached:,}** già in cache".replace(",", "."))
+
+        # Opzioni avanzate (nascoste)
+        batch_size = 50
+        force_refresh = False
+        manual_cigs = ""
+        include_all = False
+
+        with st.expander("⚙️ Opzioni avanzate", expanded=False):
+            batch_size = st.selectbox("Batch", [50, 200, 500], index=0, key="cig_enrich_batch")
+            include_all = st.checkbox("Includi anche contratti con scadenza", value=False, key="cig_enrich_all")
+            force_refresh = st.checkbox("Forza refresh (ignora cache)", value=False, key="cig_enrich_force")
+            manual_cigs = st.text_input("CIG specifici (separati da virgola)", value="", key="cig_enrich_manual")
+
+        # Bottone principale
+        if has_key:
+            run_btn = st.button("▶ Arricchisci scadenze mancanti", type="primary", key="cig_enrich_run")
+            if run_btn:
+                # Se include_all, ricalcola candidati senza filtro missing
+                if include_all and df_for_candidates is not None and len(df_for_candidates) > 0:
                     candidates = (
-                        df_for_candidates.loc[base_mask & miss, 'cig']
-                        .dropna()
-                        .astype(str)
-                        .str.strip()
-                        .str.upper()
-                        .unique()
-                        .tolist()
+                        df_for_candidates.loc[base_mask, 'cig']
+                        .dropna().astype(str).str.strip().str.upper().unique().tolist()
                     )
                     candidates.sort()
 
-                st.caption(f"Candidati (stimati): {len(candidates):,}".replace(",", "."))
+                # Manual CIGs override
+                manual_list = []
+                if manual_cigs.strip():
+                    manual_list = re.split(r"[\s,;]+", manual_cigs.strip())
+                    manual_list = [_normalize_cig(c) for c in manual_list if _is_valid_cig(c)]
 
-                run_btn = st.button("Esegui enrichment", key="cig_enrich_run")
-                if run_btn:
-                    if not get_openai_api_key():
-                        st.error("OPENAI_API_KEY mancante: impossibile chiamare gpt-5-nano.")
-                    else:
-                        # Manual CIGs override (se forniti)
-                        manual_list = []
-                        if manual_cigs.strip():
-                            manual_list = re.split(r"[\\s,;]+", manual_cigs.strip())
-                            manual_list = [_normalize_cig(c) for c in manual_list if _is_valid_cig(c)]
+                cigs_to_run = manual_list if manual_list else candidates[:int(batch_size)]
+                if not cigs_to_run:
+                    st.info("Nessun CIG da processare con i filtri attuali.")
+                else:
+                    prog = st.progress(0)
+                    status_box = st.empty()
 
-                        cigs_to_run = manual_list if manual_list else candidates[: int(batch_size)]
-                        if not cigs_to_run:
-                            st.info("Nessun CIG da processare con i filtri attuali.")
-                        else:
-                            prog = st.progress(0)
-                            status_box = st.empty()
+                    def _cb(done, total, cig_now, status):
+                        try:
+                            prog.progress(min(1.0, done / max(1, total)))
+                        except Exception:
+                            pass
+                        status_box.write(f"{done}/{total} - {cig_now} - {status}")
 
-                            def _cb(done, total, cig_now, status):
-                                try:
-                                    prog.progress(min(1.0, done / max(1, total)))
-                                except Exception:
-                                    pass
-                                status_box.write(f"{done}/{total} - {cig_now} - {status}")
+                    updated_cache, results_rows = enrich_cigs_via_llm(
+                        cigs_to_run,
+                        use_web=False,
+                        force=force_refresh,
+                        ttl_days=CIG_ENRICHMENT_TTL_DAYS_DEFAULT,
+                        progress_cb=_cb,
+                        save_every=5,
+                    )
+                    cig_cache_items = updated_cache.get("items", {}) if isinstance(updated_cache, dict) else cig_cache_items
+                    prog.progress(1.0)
+                    status_box.write("Completato.")
 
-                            updated_cache, results_rows = enrich_cigs_via_llm(
-                                cigs_to_run,
-                                use_web=use_web,
-                                force=force_refresh,
-                                ttl_days=int(ttl_days),
-                                progress_cb=_cb,
-                                save_every=5,
-                            )
-                            cig_cache_items = updated_cache.get("items", {}) if isinstance(updated_cache, dict) else cig_cache_items
-                            prog.progress(1.0)
-                            status_box.write("Completato.")
-
-                        if results_rows:
-                            res_df = pd.DataFrame(results_rows)
-                            show_dataframe(res_df, label="cig_enrichment_results", use_container_width=True, hide_index=True)
-                            try:
-                                if "status" in res_df.columns and len(res_df) > 0:
-                                    counts = res_df["status"].value_counts(dropna=False).to_dict()
-                                    st.caption(f"Esiti batch: {counts}")
-                                    if "fatal" in counts:
-                                        st.error("Errore FATALE durante enrichment: controlla API key / permessi modello / rete. Vedi colonna 'notes'.")
-                                    elif counts.get("error", 0) == len(res_df):
-                                        st.warning("Tutti i CIG in questo batch sono andati in errore. Apri la tabella e guarda la colonna 'notes' per il motivo.")
-                            except Exception:
-                                pass
-                        st.success("✅ Enrichment completato: cache aggiornata.")
-        except Exception as e:
-            st.error("❗️ Errore nella sezione Enrichment (CIG). La dashboard resta attiva.")
-            with st.expander("Dettagli errore (Enrichment)", expanded=False):
-                st.exception(e)
+                    if results_rows:
+                        res_df = pd.DataFrame(results_rows)
+                        show_dataframe(res_df, label="cig_enrichment_results", use_container_width=True, hide_index=True)
+                        try:
+                            if "status" in res_df.columns and len(res_df) > 0:
+                                counts = res_df["status"].value_counts(dropna=False).to_dict()
+                                st.caption(f"Esiti: {counts}")
+                                if "fatal" in counts:
+                                    st.error("Errore FATALE: controlla API key / permessi modello / rete.")
+                                elif counts.get("error", 0) == len(res_df):
+                                    st.warning("Tutti i CIG in errore. Controlla la colonna 'notes'.")
+                        except Exception:
+                            pass
+                    st.success("Cache aggiornata.")
+    except Exception as e:
+        st.error("❗️ Errore nella sezione Enrichment. La dashboard resta attiva.")
+        with st.expander("Dettagli errore", expanded=False):
+            st.exception(e)
 
     # ==================== VISTA TERRITORIALE: ATTIVI + SCADENZE ====================
     try:
