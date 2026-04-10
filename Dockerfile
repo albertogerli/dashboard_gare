@@ -13,7 +13,7 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 COPY app.py .
 COPY data/ ./data/
-RUN mkdir -p /app/data/output/dashboard
+COPY start.sh .
+RUN chmod +x start.sh && mkdir -p /app/data/output/dashboard
 
-# Railway injects $PORT at runtime
-CMD sh -c "streamlit run app.py --server.port=${PORT:-8501} --server.address=0.0.0.0"
+ENTRYPOINT ["./start.sh"]
