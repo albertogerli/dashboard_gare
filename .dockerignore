@@ -30,6 +30,9 @@ docs/
 *.md
 !README.md
 
+# Large uncompressed data (only keep .gz)
+data/gare_unificate.csv
+
 # File temporanei
 *.log
 *.tmp
