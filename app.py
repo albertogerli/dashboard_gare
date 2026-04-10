@@ -5813,7 +5813,8 @@ if tab11:
             if 'Aggiudicatario' in display_df.columns:
                 display_df['Aggiudicatario'] = display_df['Aggiudicatario'].apply(lambda x: str(x)[:40] if pd.notna(x) else '-')
 
-            display_df.columns = ['Scadenza', 'Tipo', 'Comune', 'Regione', 'Aggiudicatario', 'Valore', 'Durata (gg)']
+            _col_rename = ['Scadenza', 'Tipo', 'Comune', 'Regione', 'Aggiudicatario', 'Valore', 'Durata (gg)']
+            display_df.columns = _col_rename[:len(display_df.columns)]
             show_dataframe(display_df.sort_values('Scadenza'), label="consip_scadenze_dettaglio", use_container_width=True, hide_index=True)
 
             # Download
@@ -7321,11 +7322,13 @@ if tab17:
 
                         # Andamento per anno
                         if 'anno' in sup_data.columns:
-                            yearly = sup_data.groupby('anno', observed=True).agg({
-                                supplier_col: 'count',
-                                amount_col: 'sum' if amount_col else 'count'
-                            }).reset_index()
-                            yearly.columns = ['Anno', 'N_Gare', 'Valore']
+                            _agg_yearly = {supplier_col: 'count'}
+                            if amount_col:
+                                _agg_yearly[amount_col] = 'sum'
+                            yearly = sup_data.groupby('anno', observed=True).agg(_agg_yearly).reset_index()
+                            yearly.columns = ['Anno', 'N_Gare'] + (['Valore'] if amount_col else [])
+                            if 'Valore' not in yearly.columns:
+                                yearly['Valore'] = 0
                             yearly = yearly[yearly['Anno'] >= 2018].sort_values('Anno')
 
                             if len(yearly) > 0:
