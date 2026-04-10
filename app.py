@@ -2102,8 +2102,9 @@ try:
                 _top_cat_365 = _alert_valid.loc[_alert_valid['giorni'].between(-30, 365)].groupby(_cat_col_alert).size().nlargest(3)
                 _cols_365.append("**Top categorie:** " + ", ".join(f"{c} ({n})" for c, n in _top_cat_365.items()))
             st.markdown(" | ".join(_cols_365) if _cols_365 else "Dettagli nel tab Scadenze")
-except Exception:
-    pass  # Alert non bloccante: se fallisce, la dashboard continua
+except Exception as e:
+    import logging as _logging
+    _logging.getLogger(__name__).warning(f"Alert section error: {e}")  # Alert non bloccante
 
 # ==================== TAB NAVIGATION (CLUSTER UI) ====================
 st.markdown("---")
@@ -2721,16 +2722,20 @@ if tab3:
                 st.warning("Colonna ID non trovata per il conteggio")
         else:
             # Fallback ai dati pre-calcolati
-            fig = px.bar(
+            trends_df = pd.DataFrame(data.get('trends', []))
+            if trends_df.empty:
+                st.warning("Dati trend non disponibili")
+            else:
+              fig = px.bar(
                 trends_df,
                 x='anno',
                 y='count',
                 color='media',
                 color_continuous_scale='Blues',
                 labels={'count': 'Numero Gare', 'anno': 'Anno', 'media': 'Sconto %'}
-            )
-            fig.update_layout(height=400)
-            st.plotly_chart(fig, use_container_width=True)
+              )
+              fig.update_layout(height=400)
+              st.plotly_chart(fig, use_container_width=True)
 
     # Trend per categoria - calcola da filtered_df
     st.subheader("📊 Trend Sconti per Categoria")
@@ -2995,9 +3000,10 @@ if tab4:
 
         if supplier_col in filtered_df.columns and value_col in filtered_df.columns:
             # Calcola da dati filtrati
+            cig_col = next((c for c in filtered_df.columns if c in ['cig', 'ocid']), filtered_df.columns[0])
             top_df = filtered_df.groupby(supplier_col, observed=True).agg({
                 value_col: 'sum',
-                'ocid': 'count'
+                cig_col: 'count'
             }).reset_index()
             top_df.columns = ['Aggiudicatario', 'valore', 'num_gare']
             top_df = top_df.dropna(subset=['Aggiudicatario'])
@@ -3047,16 +3053,17 @@ if tab4:
         render_chart_with_save(fig_conc, "Concentrazione Mercato", "Curva di concentrazione aggiudicatari", "concentrazione_mercato")
 
         # Stats
-        top5_share = top_df.head(5)['valore'].sum() / top_df['valore'].sum() * 100
-        top10_share = top_df.head(10)['valore'].sum() / top_df['valore'].sum() * 100
-
-        st.metric("🔝 Quota Top 5", f"{top5_share:.1f}%")
-        st.metric("🔝 Quota Top 10", f"{top10_share:.1f}%")
-
-        # HHI Index
         total_val = top_df['valore'].sum()
-        hhi = ((top_df['valore'] / total_val * 100) ** 2).sum()
-        st.metric("📊 Indice HHI", f"{hhi:.0f}", help="<1500=competitivo, 1500-2500=moderato, >2500=concentrato")
+        if total_val > 0:
+            top5_share = top_df.head(5)['valore'].sum() / total_val * 100
+            top10_share = top_df.head(10)['valore'].sum() / total_val * 100
+
+            st.metric("🔝 Quota Top 5", f"{top5_share:.1f}%")
+            st.metric("🔝 Quota Top 10", f"{top10_share:.1f}%")
+
+            # HHI Index
+            hhi = ((top_df['valore'] / total_val * 100) ** 2).sum()
+            st.metric("📊 Indice HHI", f"{hhi:.0f}", help="<1500=competitivo, 1500-2500=moderato, >2500=concentrato")
 
 # ==================== TAB 5: CONSIP ====================
 if tab5:
@@ -3065,32 +3072,38 @@ if tab5:
 
     with col1:
         st.subheader("🏛️ CONSIP per Tipo Accordo")
-        consip_df = pd.DataFrame(data['consip']['by_tipo'])
+        if 'consip' not in data or 'by_tipo' not in data.get('consip', {}):
+            st.warning("Dati CONSIP non disponibili")
+            consip_df = pd.DataFrame()
+        else:
+            consip_df = pd.DataFrame(data['consip']['by_tipo'])
 
-        fig_consip = px.pie(
-            consip_df,
-            values='valore',
-            names='TipoAccordo',
-            hole=0.4,
-            color_discrete_sequence=px.colors.qualitative.Set2
-        )
-        fig_consip.update_layout(height=350)
-        render_chart_with_save(fig_consip, "CONSIP per Tipo", "Distribuzione gare CONSIP per tipo accordo", "consip_tipo")
+        if not consip_df.empty:
+            fig_consip = px.pie(
+                consip_df,
+                values='valore',
+                names='TipoAccordo',
+                hole=0.4,
+                color_discrete_sequence=px.colors.qualitative.Set2
+            )
+            fig_consip.update_layout(height=350)
+            render_chart_with_save(fig_consip, "CONSIP per Tipo", "Distribuzione gare CONSIP per tipo accordo", "consip_tipo")
 
     with col2:
         st.subheader("📊 Confronto Tipi Accordo")
-        fig = px.bar(
+        if not consip_df.empty:
+          fig = px.bar(
             consip_df,
             x='TipoAccordo',
             y=['num_gare', 'valore'],
             barmode='group',
             labels={'value': 'Valore', 'variable': 'Metrica'}
-        )
-        fig.update_layout(height=350)
-        st.plotly_chart(fig, use_container_width=True)
+          )
+          fig.update_layout(height=350)
+          st.plotly_chart(fig, use_container_width=True)
 
     # SIE Edizioni
-    if data['consip'].get('sie_edizioni'):
+    if data.get('consip', {}).get('sie_edizioni'):
         st.subheader("📈 Edizioni SIE")
         sie_df = pd.DataFrame(data['consip']['sie_edizioni'])
         fig = px.bar(
@@ -3105,7 +3118,7 @@ if tab5:
         st.plotly_chart(fig, use_container_width=True)
 
     # CONSIP per regione
-    if data['consip'].get('per_regione'):
+    if data.get('consip', {}).get('per_regione'):
         st.subheader("🗺️ CONSIP per Regione")
         consip_reg = pd.DataFrame(data['consip']['per_regione'])
         fig = px.bar(
@@ -3152,7 +3165,8 @@ if tab6:
 
     with col2:
         st.markdown("### 💰 Distribuzione Valori (Log)")
-        valid_amounts = filtered_df[filtered_df['award_amount'] > 0]['award_amount']
+        _amt_col_dist = 'award_amount' if 'award_amount' in filtered_df.columns else 'importo_aggiudicazione'
+        valid_amounts = filtered_df[filtered_df[_amt_col_dist] > 0][_amt_col_dist] if _amt_col_dist in filtered_df.columns else pd.Series(dtype=float)
         fig = px.histogram(
             x=np.log10(valid_amounts),
             nbins=50,
@@ -3205,19 +3219,25 @@ if tab6:
 
     with col1:
         st.subheader("🔗 Sconto vs Valore")
-        valid_data = filtered_df[filtered_df['award_amount'] > 0]
+        _amt_col_corr = 'award_amount' if 'award_amount' in filtered_df.columns else 'importo_aggiudicazione'
+        valid_data = filtered_df[filtered_df[_amt_col_corr] > 0] if _amt_col_corr in filtered_df.columns else pd.DataFrame()
         sample = valid_data.sample(min(5000, len(valid_data))) if len(valid_data) > 0 else valid_data
-        fig = px.scatter(
-            sample,
-            x='award_amount',
-            y='sconto',
-            color='_categoria',
-            opacity=0.5,
-            log_x=True,
-            labels={'award_amount': 'Valore (€)', 'sconto': 'Sconto %'}
-        )
-        fig.update_layout(height=400)
-        st.plotly_chart(fig, use_container_width=True)
+        if len(sample) > 0 and _amt_col_corr in sample.columns:
+            _cat_col_scatter = '_categoria' if '_categoria' in sample.columns else ('categoria' if 'categoria' in sample.columns else None)
+            scatter_kwargs = dict(
+                x=_amt_col_corr,
+                y='sconto',
+                opacity=0.5,
+                log_x=True,
+                labels={_amt_col_corr: 'Valore (€)', 'sconto': 'Sconto %'}
+            )
+            if _cat_col_scatter:
+                scatter_kwargs['color'] = _cat_col_scatter
+            fig = px.scatter(sample, **scatter_kwargs)
+            fig.update_layout(height=400)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Dati insufficienti per il grafico sconto vs valore")
 
     with col2:
         st.subheader("📅 Distribuzione Mensile")
@@ -3626,7 +3646,7 @@ if tab7:
             st.download_button(
                 label="📥 Scarica CSV completo",
                 data=city_df.to_csv(index=False).encode('utf-8'),
-                file_name=f'gare_{citta_search.lower().replace(" ", "_")}.csv',
+                file_name=f'gare_{(citta_search or "").lower().replace(" ", "_")}.csv',
                 mime='text/csv'
             )
 
@@ -4424,7 +4444,8 @@ if tab10:
         partecipanti_col = 'offerte_ricevute' if 'offerte_ricevute' in filtered_df.columns else 'parties_count'
 
         if partecipanti_col in filtered_df.columns and filtered_df[partecipanti_col].notna().sum() > 50:
-            # Converti a numerico
+            # Converti a numerico - usa copia locale per non mutare filtered_df
+            filtered_df = filtered_df.copy()
             filtered_df[partecipanti_col] = pd.to_numeric(filtered_df[partecipanti_col], errors='coerce')
 
             # Verifica se abbiamo abbastanza dati sconto
@@ -4521,6 +4542,7 @@ if tab10:
         st.markdown("#### Sconto vs Valore Gara")
         # Bin by value ranges - usa colonna dinamica
         if amount_col_t10 and amount_col_t10 in filtered_df.columns:
+            filtered_df = filtered_df.copy()
             filtered_df['value_bin'] = pd.cut(
                 filtered_df[amount_col_t10],
                 bins=[0, 50000, 150000, 500000, 2000000, 10000000, float('inf')],
@@ -5819,7 +5841,8 @@ if tab11:
                     return val
             return 3
 
-        raw_estimate['durata_anni'] = raw_estimate['_categoria'].apply(get_durata_anni)
+        _cat_col_est = '_categoria' if '_categoria' in raw_estimate.columns else ('categoria' if 'categoria' in raw_estimate.columns else None)
+        raw_estimate['durata_anni'] = raw_estimate[_cat_col_est].apply(get_durata_anni) if _cat_col_est else 3
         raw_estimate['scadenza_stimata'] = raw_estimate['award_date'] + pd.to_timedelta(raw_estimate['durata_anni'] * 365, unit='D')
 
         # Converti scadenza a timezone-naive se necessario
@@ -5839,8 +5862,9 @@ if tab11:
 
         with col1:
             st.markdown("#### Stima Scadenze per Anno")
+            _cig_col_stima = next((c for c in stima_future.columns if c in ['cig', 'ocid']), stima_future.columns[0])
             stima_anno = stima_future.groupby('anno_scadenza_stima', observed=True).agg({
-                'ocid': 'count',
+                _cig_col_stima: 'count',
                 'award_amount': 'sum'
             }).reset_index()
             stima_anno.columns = ['Anno', 'N. Contratti (stima)', 'Valore (stima)']
@@ -5853,8 +5877,9 @@ if tab11:
 
         with col2:
             st.markdown("#### Stima Scadenze per Categoria")
-            stima_cat = stima_future.groupby('_categoria', observed=True).agg({
-                'ocid': 'count',
+            _cat_col_stima = '_categoria' if '_categoria' in stima_future.columns else 'categoria'
+            stima_cat = stima_future.groupby(_cat_col_stima, observed=True).agg({
+                _cig_col_stima: 'count',
                 'award_amount': 'sum'
             }).reset_index()
             stima_cat.columns = ['Categoria', 'N. Contratti', 'Valore']
@@ -5913,13 +5938,17 @@ if tab11:
             with col1:
                 st.metric("🔴 Contratti Imminenti", f"{len(imminenti_filtrati):,}".replace(",", "."))
             with col2:
-                st.metric("💰 Valore a Rischio", f"€{imminenti_filtrati['award_amount'].sum()/1e9:.2f}B")
+                _amt_col_imm = 'award_amount' if 'award_amount' in imminenti_filtrati.columns else ('importo_aggiudicazione' if 'importo_aggiudicazione' in imminenti_filtrati.columns else None)
+                st.metric("💰 Valore a Rischio", f"€{imminenti_filtrati[_amt_col_imm].sum()/1e9:.2f}B" if _amt_col_imm else "N/D")
             with col3:
-                st.metric("🏢 Enti Coinvolti", f"{imminenti_filtrati['buyer_name'].nunique():,}".replace(",", "."))
+                _buyer_col_imm = 'buyer_name' if 'buyer_name' in imminenti_filtrati.columns else ('ente_appaltante' if 'ente_appaltante' in imminenti_filtrati.columns else None)
+                st.metric("🏢 Enti Coinvolti", f"{imminenti_filtrati[_buyer_col_imm].nunique():,}".replace(",", ".") if _buyer_col_imm else "N/D")
 
             # Top categorie imminenti
             if len(imminenti_filtrati) > 0:
-                imm_cat = imminenti_filtrati.groupby('_categoria', observed=True)['ocid'].count().sort_values(ascending=False).head(5)
+                _cat_col_imm = '_categoria' if '_categoria' in imminenti_filtrati.columns else 'categoria'
+                _cig_col_imm = next((c for c in imminenti_filtrati.columns if c in ['cig', 'ocid']), imminenti_filtrati.columns[0])
+                imm_cat = imminenti_filtrati.groupby(_cat_col_imm, observed=True)[_cig_col_imm].count().sort_values(ascending=False).head(5)
                 st.markdown("**Top 5 Categorie con Scadenze Imminenti:**")
                 for cat, count in imm_cat.items():
                     st.write(f"- {cat}: {count} contratti")
@@ -5963,7 +5992,7 @@ if tab11:
                     # Mappa per città
                     cities_alert = imminenti_filtrati.groupby(comune_col_alert, observed=True).agg({
                         'award_amount': 'sum',
-                        'ocid': 'count'
+                        _cig_col_imm: 'count'
                     }).reset_index()
                     cities_alert.columns = ['citta', 'valore', 'num_contratti']
                     cities_alert = cities_alert.dropna(subset=['citta'])
@@ -5995,7 +6024,7 @@ if tab11:
                     # Mappa per regioni se città non disponibili
                     regioni_alert_df = imminenti_filtrati.groupby(regione_col_alert, observed=True).agg({
                         'award_amount': 'sum',
-                        'ocid': 'count'
+                        _cig_col_imm: 'count'
                     }).reset_index()
                     regioni_alert_df.columns = ['regione', 'valore', 'num_contratti']
                     regioni_alert_df = regioni_alert_df.dropna(subset=['regione'])
@@ -6089,9 +6118,11 @@ if tab12:
 
         with col1:
             st.markdown("### 📈 Trend Annuale Comparato")
-            trend_a = df_a.groupby('anno', observed=True).agg({'award_amount': 'sum', 'ocid': 'count'}).reset_index()
+            _cig_col_cmp = next((c for c in df_a.columns if c in ['cig', 'ocid']), df_a.columns[0])
+            _amt_col_cmp = 'award_amount' if 'award_amount' in df_a.columns else 'importo_aggiudicazione'
+            trend_a = df_a.groupby('anno', observed=True).agg({_amt_col_cmp: 'sum', _cig_col_cmp: 'count'}).reset_index()
             trend_a['Aggiudicatario'] = supplier_a[:30]
-            trend_b = df_b.groupby('anno', observed=True).agg({'award_amount': 'sum', 'ocid': 'count'}).reset_index()
+            trend_b = df_b.groupby('anno', observed=True).agg({_amt_col_cmp: 'sum', _cig_col_cmp: 'count'}).reset_index()
             trend_b['Aggiudicatario'] = supplier_b[:30]
             trend_compare = pd.concat([trend_a, trend_b])
 
@@ -6566,6 +6597,7 @@ if tab14:
                 mean_val = filtered_df[amount_col_net].mean()
                 std_val = filtered_df[amount_col_net].std()
                 if std_val > 0:
+                    filtered_df = filtered_df.copy()
                     filtered_df['z_score'] = (filtered_df[amount_col_net] - mean_val) / std_val
 
                     outliers = filtered_df[filtered_df['z_score'].abs() > 3].copy()
@@ -6575,7 +6607,8 @@ if tab14:
                         outliers_display['z_score'] = outliers_display['z_score'].apply(lambda x: f'{x:.1f}')
                         outliers_display.columns = ['Fornitore', 'Ente', 'Importo', 'Z-Score']
                         show_dataframe(outliers_display, use_container_width=True, height=300)
-                        st.warning(f"⚠️ Trovati {len(outliers)} outlier su {len(filtered_df)} gare ({len(outliers)/len(filtered_df)*100:.2f}%)")
+                        _pct_outlier = (len(outliers)/len(filtered_df)*100) if len(filtered_df) > 0 else 0
+                        st.warning(f"⚠️ Trovati {len(outliers)} outlier su {len(filtered_df)} gare ({_pct_outlier:.2f}%)")
                     else:
                         st.success("✅ Nessun outlier significativo rilevato")
                 else:
@@ -7667,10 +7700,10 @@ if tab19:
 
     if map_type == "🌡️ Heatmap Valore":
         if regione_col and amount_col:
-            region_data = filtered_df.groupby(regione_col, observed=True).agg({
-                amount_col: 'sum'
-            }).reset_index()
-            region_data['N_Gare'] = filtered_df.groupby(regione_col, observed=True).size().values
+            region_data = filtered_df.groupby(regione_col, observed=True).agg(
+                Valore=(amount_col, 'sum'),
+                N_Gare=(amount_col, 'count')
+            ).reset_index()
             region_data.columns = ['Regione', 'Valore', 'N_Gare']
 
             # Add coordinates
@@ -7706,10 +7739,10 @@ if tab19:
     elif map_type == "📍 Cluster Città":
         if comune_col and amount_col:
             # Aggregazione per comune
-            city_data = filtered_df.groupby(comune_col, observed=True).agg({
-                amount_col: 'sum'
-            }).reset_index()
-            city_data['N_Gare'] = filtered_df.groupby(comune_col, observed=True).size().values
+            city_data = filtered_df.groupby(comune_col, observed=True).agg(
+                Valore=(amount_col, 'sum'),
+                N_Gare=(amount_col, 'count')
+            ).reset_index()
             city_data.columns = ['Città', 'Valore', 'N_Gare']
             city_data['Valore_M'] = city_data['Valore'] / 1e6
 
@@ -7757,10 +7790,10 @@ if tab19:
                     with col1:
                         # Top categories in region
                         if categoria_col and amount_col:
-                            cat_region = region_df.groupby(categoria_col, observed=True).agg({
-                                amount_col: 'sum'
-                            }).reset_index()
-                            cat_region['N_Gare'] = region_df.groupby(categoria_col, observed=True).size().values
+                            cat_region = region_df.groupby(categoria_col, observed=True).agg(
+                                Valore=(amount_col, 'sum'),
+                                N_Gare=(amount_col, 'count')
+                            ).reset_index()
                             cat_region.columns = ['Categoria', 'Valore', 'N_Gare']
                             cat_region = cat_region.nlargest(10, 'Valore')
 
@@ -7779,10 +7812,10 @@ if tab19:
                     with col2:
                         # Top suppliers in region
                         if supplier_col and amount_col:
-                            sup_region = region_df.groupby(supplier_col, observed=True).agg({
-                                amount_col: 'sum'
-                            }).reset_index()
-                            sup_region['N_Gare'] = region_df.groupby(supplier_col, observed=True).size().values
+                            sup_region = region_df.groupby(supplier_col, observed=True).agg(
+                                Valore=(amount_col, 'sum'),
+                                N_Gare=(amount_col, 'count')
+                            ).reset_index()
                             sup_region.columns = ['Fornitore', 'Valore', 'N_Gare']
                             sup_region = sup_region.nlargest(10, 'Valore')
 
@@ -7802,10 +7835,10 @@ if tab19:
                     if 'anno' in region_df.columns and amount_col:
                         trend_data = region_df[region_df['anno'].between(2018, 2025)]
                         if len(trend_data) > 0:
-                            trend_region = trend_data.groupby('anno', observed=True).agg({
-                                amount_col: 'sum'
-                            }).reset_index()
-                            trend_region['N_Gare'] = trend_data.groupby('anno', observed=True).size().values
+                            trend_region = trend_data.groupby('anno', observed=True).agg(
+                                Valore=(amount_col, 'sum'),
+                                N_Gare=(amount_col, 'count')
+                            ).reset_index()
                             trend_region.columns = ['Anno', 'Valore', 'N_Gare']
 
                             fig = make_subplots(specs=[[{"secondary_y": True}]])
@@ -7833,10 +7866,10 @@ if tab19:
 
             if len(anim_df) > 0:
                 # Prepare data by year and region
-                anim_data = anim_df.groupby(['anno', regione_col], observed=True).agg({
-                    amount_col: 'sum'
-                }).reset_index()
-                anim_data['N_Gare'] = anim_df.groupby(['anno', regione_col], observed=True).size().values
+                anim_data = anim_df.groupby(['anno', regione_col], observed=True).agg(
+                    Valore=(amount_col, 'sum'),
+                    N_Gare=(amount_col, 'count')
+                ).reset_index()
                 anim_data.columns = ['Anno', 'Regione', 'Valore', 'N_Gare']
 
                 # Add coordinates
