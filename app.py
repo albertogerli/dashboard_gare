@@ -2003,14 +2003,33 @@ col1.metric("📊 Valore Mediano", f"€{median_value/1e3:.0f}K" if median_value
             help="Valore centrale: 50% delle gare ha importo inferiore, 50% superiore")
 col2.metric("🔝 Gara Max", f"€{max_value/1e6:.1f}M" if max_value > 0 else "N/D",
             help="Gara con l'importo di aggiudicazione più alto nel dataset")
-col3.metric("📰 Gazzetta", f"{gare_gazzetta:,}".replace(",", "."),
-            help="Gare estratte dalla Gazzetta Ufficiale Europea (TED)")
-col4.metric("📊 OCDS", f"{gare_ocds:,}".replace(",", "."),
-            help="Gare dal portale ANAC in formato Open Contracting Data Standard")
-col5.metric("🏛️ CONSIP", f"{gare_consip:,}".replace(",", "."),
-            help="Gare da convenzioni CONSIP (Servizio Luce, SIE)")
-col6.metric("🔑 Chiavi Uniche", f"{chiavi_uniche:,}".replace(",", "."),
-            help="Numero di identificativi univoci (CIG o OCID) distinti")
+
+# Regioni coperte
+_n_regioni = filtered_df['regione'].nunique() if 'regione' in filtered_df.columns else 0
+col3.metric("🗺️ Regioni", f"{_n_regioni}",
+            help="Numero di regioni con almeno una gara nel dataset filtrato")
+
+# Comuni coinvolti
+_n_comuni = filtered_df['comune'].nunique() if 'comune' in filtered_df.columns else 0
+col4.metric("🏘️ Comuni", f"{_n_comuni:,}".replace(",", "."),
+            help="Numero di comuni coinvolti nelle gare filtrate")
+
+# Categorie
+_n_cat = filtered_df['categoria'].nunique() if 'categoria' in filtered_df.columns else 0
+col5.metric("🏷️ Categorie", f"{_n_cat}",
+            help="Numero di categorie merceologiche nel dataset filtrato")
+
+# Anno più recente
+_anno_max = int(filtered_df['anno'].max()) if 'anno' in filtered_df.columns and filtered_df['anno'].notna().any() else "N/D"
+col6.metric("📅 Ultimo Anno", f"{_anno_max}",
+            help="Anno più recente nel dataset filtrato")
+
+with st.expander("📂 Dettaglio fonti dati", expanded=False):
+    _fc1, _fc2, _fc3, _fc4 = st.columns(4)
+    _fc1.metric("📰 Gazzetta", f"{gare_gazzetta:,}".replace(",", "."))
+    _fc2.metric("📊 OCDS", f"{gare_ocds:,}".replace(",", "."))
+    _fc3.metric("🏛️ CONSIP", f"{gare_consip:,}".replace(",", "."))
+    _fc4.metric("🔑 Chiavi Uniche", f"{chiavi_uniche:,}".replace(",", "."))
 
 # ==================== ALERT SCADENZE IMMINENTI (BANNER) ====================
 try:
@@ -2072,36 +2091,45 @@ try:
     _comune_col_alert = next((c for c in ['comune', 'buyer_locality'] if c in _alert_valid.columns), None)
     _cat_col_alert = next((c for c in ['_categoria', 'categoria'] if c in _alert_valid.columns), None)
 
+    # Alert scadenze — sempre visibili
     if _n30 > 0:
-        with st.expander(f"🔴 {_n30} contratti in scadenza/scaduti entro 30 giorni (€{_v30/1e6:.1f}M)", expanded=False):
-            _cols_30 = []
-            if _comune_col_alert:
-                _top_comuni_30 = _alert_valid.loc[_alert_valid['giorni'].between(-30, 30)].groupby(_comune_col_alert).size().nlargest(5)
-                _cols_30.append("**Top comuni:** " + ", ".join(f"{c} ({n})" for c, n in _top_comuni_30.items()))
-            if _cat_col_alert:
-                _top_cat_30 = _alert_valid.loc[_alert_valid['giorni'].between(-30, 30)].groupby(_cat_col_alert).size().nlargest(3)
-                _cols_30.append("**Top categorie:** " + ", ".join(f"{c} ({n})" for c, n in _top_cat_30.items()))
-            st.markdown(" | ".join(_cols_30) if _cols_30 else "Dettagli nel tab Scadenze")
+        st.error(f"🔴 **{_n30} contratti in scadenza/scaduti entro 30 giorni** — Valore: €{_v30/1e6:.1f}M")
     if _n90 > _n30:
-        with st.expander(f"🟠 {_n90} contratti in scadenza entro 90 giorni", expanded=False):
-            _cols_90 = []
-            if _comune_col_alert:
-                _top_comuni_90 = _alert_valid.loc[_alert_valid['giorni'].between(-30, 90)].groupby(_comune_col_alert).size().nlargest(5)
-                _cols_90.append("**Top comuni:** " + ", ".join(f"{c} ({n})" for c, n in _top_comuni_90.items()))
-            if _cat_col_alert:
-                _top_cat_90 = _alert_valid.loc[_alert_valid['giorni'].between(-30, 90)].groupby(_cat_col_alert).size().nlargest(3)
-                _cols_90.append("**Top categorie:** " + ", ".join(f"{c} ({n})" for c, n in _top_cat_90.items()))
-            st.markdown(" | ".join(_cols_90) if _cols_90 else "Dettagli nel tab Scadenze")
+        st.warning(f"🟠 **{_n90} contratti in scadenza entro 90 giorni**")
     if _n365 > _n90:
-        with st.expander(f"🟡 {_n365} contratti in scadenza entro 12 mesi (€{_v365/1e6:.1f}M)", expanded=False):
-            _cols_365 = []
-            if _comune_col_alert:
-                _top_comuni_365 = _alert_valid.loc[_alert_valid['giorni'].between(-30, 365)].groupby(_comune_col_alert).size().nlargest(5)
-                _cols_365.append("**Top comuni:** " + ", ".join(f"{c} ({n})" for c, n in _top_comuni_365.items()))
-            if _cat_col_alert:
-                _top_cat_365 = _alert_valid.loc[_alert_valid['giorni'].between(-30, 365)].groupby(_cat_col_alert).size().nlargest(3)
-                _cols_365.append("**Top categorie:** " + ", ".join(f"{c} ({n})" for c, n in _top_cat_365.items()))
-            st.markdown(" | ".join(_cols_365) if _cols_365 else "Dettagli nel tab Scadenze")
+        st.info(f"🟡 **{_n365} contratti in scadenza entro 12 mesi** — Valore: €{_v365/1e6:.1f}M")
+
+    # Mini tabella top 10 scadenze imminenti
+    if len(_alert_valid) > 0:
+        _prossime = _alert_valid[_alert_valid['giorni'].between(-30, 365)].nlargest(10, 'giorni', keep='first').sort_values('giorni')
+        if len(_prossime) > 0:
+            with st.expander(f"📋 Prossime 10 scadenze (dettaglio)", expanded=True):
+                _det_cols = []
+                _rename = {}
+                if _comune_col_alert and _comune_col_alert in _prossime.columns:
+                    _det_cols.append(_comune_col_alert)
+                    _rename[_comune_col_alert] = 'Comune'
+                if _cat_col_alert and _cat_col_alert in _prossime.columns:
+                    _det_cols.append(_cat_col_alert)
+                    _rename[_cat_col_alert] = 'Categoria'
+                for _c in ['award_amount', 'importo_aggiudicazione']:
+                    if _c in _prossime.columns:
+                        _det_cols.append(_c)
+                        _rename[_c] = 'Importo'
+                        break
+                _det_cols.extend(['scadenza', 'giorni'])
+                _rename['scadenza'] = 'Scadenza'
+                _rename['giorni'] = 'Giorni'
+                _det_cols = [c for c in _det_cols if c in _prossime.columns]
+                _show = _prossime[_det_cols].copy()
+                if 'scadenza' in _show.columns:
+                    _show['scadenza'] = _show['scadenza'].dt.strftime('%d/%m/%Y')
+                if 'Importo' in _rename.values():
+                    _imp_col = [k for k, v in _rename.items() if v == 'Importo'][0]
+                    if _imp_col in _show.columns:
+                        _show[_imp_col] = _show[_imp_col].apply(lambda x: f"€{x/1e3:.0f}K" if pd.notna(x) and x > 0 else "-")
+                _show = _show.rename(columns=_rename)
+                st.dataframe(_show, use_container_width=True, hide_index=True)
 except Exception as e:
     import logging as _logging
     _logging.getLogger(__name__).warning(f"Alert section error: {e}")  # Alert non bloccante
