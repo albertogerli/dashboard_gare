@@ -10,7 +10,7 @@ LABEL description="Dashboard Gare Pubbliche - Streamlit"
 # Variabili ambiente
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    STREAMLIT_SERVER_PORT=8000 \
+    PORT=8501 \
     STREAMLIT_SERVER_ADDRESS=0.0.0.0 \
     STREAMLIT_SERVER_HEADLESS=true \
     STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
@@ -39,12 +39,8 @@ RUN mkdir -p /app/data/output/dashboard
 RUN useradd --create-home appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Health check per Azure
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl --fail http://localhost:8000/_stcore/health || exit 1
+# Porta esposta (Railway assegna $PORT)
+EXPOSE ${PORT}
 
-# Porta esposta (Azure usa 8000 di default)
-EXPOSE 8000
-
-# Comando di avvio
-CMD ["streamlit", "run", "app.py", "--server.port=8000", "--server.address=0.0.0.0"]
+# Comando di avvio — usa $PORT da Railway
+CMD streamlit run app.py --server.port=${PORT} --server.address=0.0.0.0
