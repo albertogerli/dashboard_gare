@@ -1,2 +1,4 @@
 #!/bin/sh
-exec streamlit run app.py --server.port="${PORT:-8501}" --server.address=0.0.0.0
+# Railway sets $PORT; override Streamlit's env var to use it
+export STREAMLIT_SERVER_PORT="${PORT:-8501}"
+exec streamlit run app.py --server.address=0.0.0.0
