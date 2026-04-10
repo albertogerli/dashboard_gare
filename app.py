@@ -154,6 +154,7 @@ def show_dataframe(df: pd.DataFrame, label: str | None = None, preview_rows: int
 # Carica variabili d'ambiente dal file .env
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
+load_dotenv(Path(__file__).parent / ".env")
 
 # Config
 st.set_page_config(
@@ -161,6 +162,24 @@ st.set_page_config(
     page_icon="📊",
     layout="wide"
 )
+
+# --- Authentication gate ---
+_APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
+if _APP_PASSWORD:
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    if not st.session_state.authenticated:
+        st.markdown("<h2 style='text-align:center;margin-top:20vh'>Dashboard Gare Pubbliche</h2>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col2:
+            pwd = st.text_input("Password", type="password", key="login_pwd")
+            if st.button("Accedi", use_container_width=True):
+                if pwd == _APP_PASSWORD:
+                    st.session_state.authenticated = True
+                    st.rerun()
+                else:
+                    st.error("Password errata")
+        st.stop()
 
 # Brand colors (manual)
 BRAND_BLUE = "#34657F"       # Blu primario

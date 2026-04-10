@@ -1,1863 +1,445 @@
 {
   "kpi": {
-    "totale_gare": 387256,
-    "valore_totale": 100380601303.75,
-    "aggiudicatari_unici": 92487,
-    "comuni_coinvolti": 17536,
-    "gare_consip": 898,
-    "sconto_medio": 2.2356846953341756,
-    "partecipanti_medi": 2.487729047451815
+    "totale_gare": 377981,
+    "valore_totale": 74552454019.53,
+    "aggiudicatari_unici": 82314,
+    "comuni_coinvolti": 9448,
+    "gare_consip": 4110,
+    "sconto_medio": 15.588001374840243,
+    "partecipanti_medi": 0.5007295371347429
   },
   "consip": {
     "by_tipo": [
       {
         "TipoAccordo": "AQ_SL",
-        "num_gare": 4,
-        "valore": 1708918.0,
+        "num_gare": 1,
+        "valore": 234000.0,
         "sconto_medio": 0.0
       },
       {
         "TipoAccordo": "GEIP",
-        "num_gare": 11,
-        "valore": 4695225.54,
+        "num_gare": 2,
+        "valore": 91483.14,
         "sconto_medio": 0.5
       },
       {
         "TipoAccordo": "SIE",
-        "num_gare": 274,
-        "valore": 964113791.3499999,
+        "num_gare": 231,
+        "valore": 931527135.35,
         "sconto_medio": 0.1724137931034483
       },
       {
         "TipoAccordo": "SL",
-        "num_gare": 608,
-        "valore": 552381923.0899999,
-        "sconto_medio": 0.10165876777251184
-      }
-    ],
-    "servizio_luce_edizioni": [],
-    "sie_edizioni": [
-      {
-        "Edizione": "1.0",
-        "num_gare": 1,
-        "valore": 0.0,
-        "sconto_medio": null
-      },
-      {
-        "Edizione": "2.0",
-        "num_gare": 31,
-        "valore": 267039943.07,
-        "sconto_medio": 1.0526315789473684
-      },
-      {
-        "Edizione": "3.0",
-        "num_gare": 43,
-        "valore": 369682586.37999994,
-        "sconto_medio": 0.0
-      },
-      {
-        "Edizione": "4.0",
-        "num_gare": 131,
-        "valore": 158483890.21999997,
-        "sconto_medio": 0.0
-      }
-    ],
-    "per_regione": [
-      {
-        "Regione": "Abruzzo",
-        "num_gare": 22,
-        "valore": 25894360.74,
-        "sconto_medio": 0.0
-      },
-      {
-        "Regione": "Basilicata",
-        "num_gare": 6,
-        "valore": 280920.07999999996,
-        "sconto_medio": null
-      },
-      {
-        "Regione": "Calabria",
-        "num_gare": 25,
-        "valore": 4881877.75,
-        "sconto_medio": 0.0
-      },
-      {
-        "Regione": "Campania",
-        "num_gare": 35,
-        "valore": 33563596.15,
-        "sconto_medio": 0.0
-      },
-      {
-        "Regione": "Centrale",
-        "num_gare": 38,
-        "valore": 70130280.41,
-        "sconto_medio": 0.0
-      },
-      {
-        "Regione": "Emilia romagna",
-        "num_gare": 49,
-        "valore": 67269643.8,
-        "sconto_medio": 0.28043478260869564
-      },
-      {
-        "Regione": "Emilia-Romagna",
-        "num_gare": 11,
-        "valore": 4319935.45,
-        "sconto_medio": null
-      },
-      {
-        "Regione": "Friuli Venezia Giulia",
-        "num_gare": 7,
-        "valore": 1957103.1,
-        "sconto_medio": null
-      },
-      {
-        "Regione": "Friuli venezia giulia",
-        "num_gare": 21,
-        "valore": 20642165.02,
-        "sconto_medio": 0.0
-      },
-      {
-        "Regione": "Lazio",
-        "num_gare": 49,
-        "valore": 175249390.14000002,
-        "sconto_medio": 0.034482758620689655
-      },
-      {
-        "Regione": "Liguria",
-        "num_gare": 22,
-        "valore": 24495795.48,
-        "sconto_medio": 0.0
-      },
-      {
-        "Regione": "Lombardia",
-        "num_gare": 151,
-        "valore": 317253621.57000005,
-        "sconto_medio": 0.2631578947368421
-      },
-      {
-        "Regione": "Marche",
-        "num_gare": 32,
-        "valore": 46729097.89,
-        "sconto_medio": 0.0
-      },
-      {
-        "Regione": "Molise",
-        "num_gare": 3,
-        "valore": 26844.04,
-        "sconto_medio": null
-      },
-      {
-        "Regione": "Non classificato",
-        "num_gare": 5,
-        "valore": 5311208.65,
-        "sconto_medio": 0.0
-      },
-      {
-        "Regione": "Piemonte",
-        "num_gare": 95,
-        "valore": 126220311.21999998,
-        "sconto_medio": 0.0
-      },
-      {
-        "Regione": "Provincia autonoma di trento",
-        "num_gare": 6,
-        "valore": 5177083.459999999,
-        "sconto_medio": 0.0
-      },
-      {
-        "Regione": "Puglia",
-        "num_gare": 25,
-        "valore": 21774079.64,
-        "sconto_medio": 0.0
-      },
-      {
-        "Regione": "Sardegna",
-        "num_gare": 41,
-        "valore": 64469704.91,
-        "sconto_medio": 0.0
-      },
-      {
-        "Regione": "Sicilia",
-        "num_gare": 43,
-        "valore": 169440307.0,
-        "sconto_medio": 0.7142857142857143
-      },
-      {
-        "Regione": "Toscana",
-        "num_gare": 38,
-        "valore": 63436532.24000001,
-        "sconto_medio": 0.0
-      },
-      {
-        "Regione": "Trentino-Alto Adige",
-        "num_gare": 2,
-        "valore": 857870.99,
-        "sconto_medio": null
-      },
-      {
-        "Regione": "Umbria",
-        "num_gare": 19,
-        "valore": 136620276.04,
-        "sconto_medio": 0.0
-      },
-      {
-        "Regione": "Valle d Aosta",
-        "num_gare": 4,
-        "valore": 1657203.78,
-        "sconto_medio": null
-      },
-      {
-        "Regione": "Veneto",
-        "num_gare": 97,
-        "valore": 122336412.69,
-        "sconto_medio": 0.0
+        "num_gare": 396,
+        "valore": 451444634.28999996,
+        "sconto_medio": 0.5190821256038648
       }
     ]
   },
-  "categories": [
+  "by_categoria": [
     {
-      "Categoria_Main": "ENERGIA",
-      "num_gare": 88088,
-      "valore": 7013097492.499999,
-      "sconto_medio": 3.117995455292563,
-      "partecipanti_medi": 2.3841839978203616
+      "categoria": "Acqua_Fognature",
+      "num_gare": 46373,
+      "valore": 6558391922.259999
     },
     {
-      "Categoria_Main": "ILLUMINAZIONE",
-      "num_gare": 54631,
-      "valore": 4668614685.59,
-      "sconto_medio": 2.380921990190125,
-      "partecipanti_medi": 2.503871428309934
+      "categoria": "Acquedotti",
+      "num_gare": 3170,
+      "valore": 52426479.0
     },
     {
-      "Categoria_Main": "ACQUA_FOGNATURE",
-      "num_gare": 48911,
-      "valore": 7681065600.029999,
-      "sconto_medio": 2.4491958582296602,
-      "partecipanti_medi": 2.526323321952117
+      "categoria": "Altro",
+      "num_gare": 14176,
+      "valore": 263553567.0
     },
     {
-      "Categoria_Main": "STRADE_INFRASTRUTTURE",
-      "num_gare": 46002,
-      "valore": 2071421699.98,
-      "sconto_medio": 1.5166669180534282,
-      "partecipanti_medi": 2.5203904178079215
+      "categoria": "Ambiente",
+      "num_gare": 1070,
+      "valore": 23704334.0
     },
     {
-      "Categoria_Main": "VIDEOSORVEGLIANZA",
-      "num_gare": 35490,
-      "valore": 6226682169.129999,
-      "sconto_medio": 0.9176204931418573,
-      "partecipanti_medi": 2.5276697661313046
+      "categoria": "Colonnine",
+      "num_gare": 18,
+      "valore": 543335.0
     },
     {
-      "Categoria_Main": "RIFIUTI",
-      "num_gare": 33296,
-      "valore": 10621815803.310001,
-      "sconto_medio": 2.5296860882218635,
-      "partecipanti_medi": 2.3744894281595386
+      "categoria": "Digitale",
+      "num_gare": 267,
+      "valore": 5549315.0
     },
     {
-      "Categoria_Main": "VERDE_PUBBLICO",
-      "num_gare": 31866,
-      "valore": 1618322951.81,
-      "sconto_medio": 1.8721664057815721,
-      "partecipanti_medi": 2.4666415615389443
+      "categoria": "E_Mobility",
+      "num_gare": 2930,
+      "valore": 367644088.48
     },
     {
-      "Categoria_Main": "SMART_CITY",
-      "num_gare": 21778,
-      "valore": 42792069010.97,
-      "sconto_medio": 1.0486280471081002,
-      "partecipanti_medi": 2.7841399577555332
+      "categoria": "Edifici",
+      "num_gare": 4235,
+      "valore": 1017370048.3499999
     },
     {
-      "Categoria_Main": "EDIFICI_ENERGIA",
-      "num_gare": 20360,
-      "valore": 3628394733.03,
-      "sconto_medio": 3.863882375211469,
-      "partecipanti_medi": 2.5729862475442045
+      "categoria": "Edifici_Energia",
+      "num_gare": 15594,
+      "valore": 651841729.28
     },
     {
-      "Categoria_Main": "SMART_PARKING",
-      "num_gare": 3663,
-      "valore": 84208887.3,
-      "sconto_medio": 0.8675727055751791,
-      "partecipanti_medi": 2.416871416871417
+      "categoria": "Energia",
+      "num_gare": 107462,
+      "valore": 40888348817.21001
     },
     {
-      "Categoria_Main": "E_MOBILITY",
-      "num_gare": 3171,
-      "valore": 13974908270.099998,
-      "sconto_medio": 1.6213215098579623,
-      "partecipanti_medi": 2.4695679596341846
-    }
-  ],
-  "category_hierarchy": {
-    "RIFIUTI": {
-      "num_gare": 33296,
-      "valore": 10621815803.310001,
-      "sconto_medio": 2.5296860882218635,
-      "partecipanti_medi": 2.3744894281595386,
-      "sottocategorie": [
-        {
-          "nome": "RIFIUTI",
-          "count": 33083
-        },
-        {
-          "nome": "RIFIUTI, VERDE_PUBBLICO",
-          "count": 213
-        }
-      ]
+      "categoria": "Gallerie",
+      "num_gare": 233,
+      "valore": 3508487.0
     },
-    "ENERGIA": {
-      "num_gare": 88088,
-      "valore": 7013097492.499999,
-      "sconto_medio": 3.117995455292563,
-      "partecipanti_medi": 2.3841839978203616,
-      "sottocategorie": [
-        {
-          "nome": "ENERGIA",
-          "count": 68452
-        },
-        {
-          "nome": "ENERGIA, EDIFICI_ENERGIA",
-          "count": 18670
-        },
-        {
-          "nome": "ENERGIA, ACQUA_FOGNATURE",
-          "count": 421
-        },
-        {
-          "nome": "ENERGIA, RIFIUTI",
-          "count": 195
-        },
-        {
-          "nome": "ENERGIA, STRADE_INFRASTRUTTURE",
-          "count": 130
-        },
-        {
-          "nome": "ENERGIA, E_MOBILITY",
-          "count": 114
-        },
-        {
-          "nome": "ENERGIA, VERDE_PUBBLICO",
-          "count": 37
-        },
-        {
-          "nome": "ENERGIA, EDIFICI_ENERGIA, ACQUA_FOGNATURE",
-          "count": 23
-        },
-        {
-          "nome": "ENERGIA, EDIFICI_ENERGIA, STRADE_INFRASTRUTTURE",
-          "count": 23
-        },
-        {
-          "nome": "ENERGIA, EDIFICI_ENERGIA, E_MOBILITY",
-          "count": 10
-        }
-      ]
-    },
-    "ACQUA_FOGNATURE": {
-      "num_gare": 48911,
-      "valore": 7681065600.029999,
-      "sconto_medio": 2.4491958582296602,
-      "partecipanti_medi": 2.526323321952117,
-      "sottocategorie": [
-        {
-          "nome": "ACQUA_FOGNATURE",
-          "count": 48632
-        },
-        {
-          "nome": "ACQUA_FOGNATURE, RIFIUTI",
-          "count": 174
-        },
-        {
-          "nome": "ACQUA_FOGNATURE, VERDE_PUBBLICO",
-          "count": 105
-        }
-      ]
-    },
-    "VIDEOSORVEGLIANZA": {
-      "num_gare": 35490,
-      "valore": 6226682169.129999,
-      "sconto_medio": 0.9176204931418573,
-      "partecipanti_medi": 2.5276697661313046,
-      "sottocategorie": [
-        {
-          "nome": "VIDEOSORVEGLIANZA",
-          "count": 34428
-        },
-        {
-          "nome": "VIDEOSORVEGLIANZA, SMART_CITY",
-          "count": 249
-        },
-        {
-          "nome": "VIDEOSORVEGLIANZA, EDIFICI_ENERGIA",
-          "count": 198
-        },
-        {
-          "nome": "VIDEOSORVEGLIANZA, RIFIUTI",
-          "count": 182
-        },
-        {
-          "nome": "VIDEOSORVEGLIANZA, ENERGIA",
-          "count": 148
-        },
-        {
-          "nome": "VIDEOSORVEGLIANZA, STRADE_INFRASTRUTTURE",
-          "count": 126
-        },
-        {
-          "nome": "VIDEOSORVEGLIANZA, ACQUA_FOGNATURE",
-          "count": 82
-        },
-        {
-          "nome": "VIDEOSORVEGLIANZA, SMART_PARKING",
-          "count": 21
-        },
-        {
-          "nome": "VIDEOSORVEGLIANZA, VERDE_PUBBLICO",
-          "count": 14
-        },
-        {
-          "nome": "VIDEOSORVEGLIANZA, ENERGIA, STRADE_INFRASTRUTTURE",
-          "count": 12
-        }
-      ]
-    },
-    "VERDE_PUBBLICO": {
-      "num_gare": 31866,
-      "valore": 1618322951.81,
-      "sconto_medio": 1.8721664057815721,
-      "partecipanti_medi": 2.4666415615389443,
-      "sottocategorie": [
-        {
-          "nome": "VERDE_PUBBLICO",
-          "count": 31866
-        }
-      ]
-    },
-    "STRADE_INFRASTRUTTURE": {
-      "num_gare": 46002,
-      "valore": 2071421699.98,
-      "sconto_medio": 1.5166669180534282,
-      "partecipanti_medi": 2.5203904178079215,
-      "sottocategorie": [
-        {
-          "nome": "STRADE_INFRASTRUTTURE",
-          "count": 45240
-        },
-        {
-          "nome": "STRADE_INFRASTRUTTURE, VERDE_PUBBLICO",
-          "count": 490
-        },
-        {
-          "nome": "STRADE_INFRASTRUTTURE, ACQUA_FOGNATURE",
-          "count": 208
-        },
-        {
-          "nome": "STRADE_INFRASTRUTTURE, RIFIUTI",
-          "count": 54
-        },
-        {
-          "nome": "STRADE_INFRASTRUTTURE, E_MOBILITY",
-          "count": 5
-        },
-        {
-          "nome": "STRADE_INFRASTRUTTURE, ACQUA_FOGNATURE, VERDE_PUBBLICO",
-          "count": 4
-        },
-        {
-          "nome": "STRADE_INFRASTRUTTURE, E_MOBILITY, VERDE_PUBBLICO",
-          "count": 1
-        }
-      ]
-    },
-    "ILLUMINAZIONE": {
-      "num_gare": 54631,
-      "valore": 4668614685.59,
-      "sconto_medio": 2.380921990190125,
-      "partecipanti_medi": 2.503871428309934,
-      "sottocategorie": [
-        {
-          "nome": "ILLUMINAZIONE",
-          "count": 38138
-        },
-        {
-          "nome": "ILLUMINAZIONE, ENERGIA",
-          "count": 12779
-        },
-        {
-          "nome": "ILLUMINAZIONE, ENERGIA, EDIFICI_ENERGIA",
-          "count": 1048
-        },
-        {
-          "nome": "ILLUMINAZIONE, STRADE_INFRASTRUTTURE",
-          "count": 751
-        },
-        {
-          "nome": "ILLUMINAZIONE, EDIFICI_ENERGIA",
-          "count": 748
-        },
-        {
-          "nome": "ILLUMINAZIONE, VIDEOSORVEGLIANZA",
-          "count": 321
-        },
-        {
-          "nome": "ILLUMINAZIONE, ENERGIA, STRADE_INFRASTRUTTURE",
-          "count": 177
-        },
-        {
-          "nome": "ILLUMINAZIONE, SMART_CITY",
-          "count": 149
-        },
-        {
-          "nome": "ILLUMINAZIONE, ACQUA_FOGNATURE",
-          "count": 137
-        },
-        {
-          "nome": "ILLUMINAZIONE, VERDE_PUBBLICO",
-          "count": 117
-        }
-      ]
-    },
-    "SMART_CITY": {
-      "num_gare": 21778,
-      "valore": 42792069010.97,
-      "sconto_medio": 1.0486280471081002,
-      "partecipanti_medi": 2.7841399577555332,
-      "sottocategorie": [
-        {
-          "nome": "SMART_CITY",
-          "count": 21104
-        },
-        {
-          "nome": "SMART_CITY, ACQUA_FOGNATURE",
-          "count": 431
-        },
-        {
-          "nome": "SMART_CITY, ENERGIA",
-          "count": 102
-        },
-        {
-          "nome": "SMART_CITY, RIFIUTI",
-          "count": 42
-        },
-        {
-          "nome": "SMART_CITY, EDIFICI_ENERGIA",
-          "count": 25
-        },
-        {
-          "nome": "SMART_CITY, E_MOBILITY",
-          "count": 17
-        },
-        {
-          "nome": "SMART_CITY, STRADE_INFRASTRUTTURE",
-          "count": 15
-        },
-        {
-          "nome": "SMART_CITY, VERDE_PUBBLICO",
-          "count": 14
-        },
-        {
-          "nome": "SMART_CITY, SMART_PARKING",
-          "count": 13
-        },
-        {
-          "nome": "SMART_CITY, ENERGIA, EDIFICI_ENERGIA",
-          "count": 7
-        }
-      ]
-    },
-    "EDIFICI_ENERGIA": {
-      "num_gare": 20360,
-      "valore": 3628394733.03,
-      "sconto_medio": 3.863882375211469,
-      "partecipanti_medi": 2.5729862475442045,
-      "sottocategorie": [
-        {
-          "nome": "EDIFICI_ENERGIA",
-          "count": 20164
-        },
-        {
-          "nome": "EDIFICI_ENERGIA, ACQUA_FOGNATURE",
-          "count": 97
-        },
-        {
-          "nome": "EDIFICI_ENERGIA, VERDE_PUBBLICO",
-          "count": 40
-        },
-        {
-          "nome": "EDIFICI_ENERGIA, RIFIUTI",
-          "count": 33
-        },
-        {
-          "nome": "EDIFICI_ENERGIA, STRADE_INFRASTRUTTURE",
-          "count": 19
-        },
-        {
-          "nome": "EDIFICI_ENERGIA, E_MOBILITY",
-          "count": 5
-        },
-        {
-          "nome": "EDIFICI_ENERGIA, STRADE_INFRASTRUTTURE, VERDE_PUBBLICO",
-          "count": 2
-        }
-      ]
-    },
-    "E_MOBILITY": {
-      "num_gare": 3171,
-      "valore": 13974908270.099998,
-      "sconto_medio": 1.6213215098579623,
-      "partecipanti_medi": 2.4695679596341846,
-      "sottocategorie": [
-        {
-          "nome": "E_MOBILITY",
-          "count": 3146
-        },
-        {
-          "nome": "E_MOBILITY, RIFIUTI",
-          "count": 15
-        },
-        {
-          "nome": "E_MOBILITY, VERDE_PUBBLICO",
-          "count": 6
-        },
-        {
-          "nome": "E_MOBILITY, ACQUA_FOGNATURE",
-          "count": 4
-        }
-      ]
-    },
-    "SMART_PARKING": {
-      "num_gare": 3663,
-      "valore": 84208887.3,
-      "sconto_medio": 0.8675727055751791,
-      "partecipanti_medi": 2.416871416871417,
-      "sottocategorie": [
-        {
-          "nome": "SMART_PARKING",
-          "count": 3590
-        },
-        {
-          "nome": "SMART_PARKING, STRADE_INFRASTRUTTURE",
-          "count": 54
-        },
-        {
-          "nome": "SMART_PARKING, ENERGIA",
-          "count": 8
-        },
-        {
-          "nome": "SMART_PARKING, VERDE_PUBBLICO",
-          "count": 5
-        },
-        {
-          "nome": "SMART_PARKING, RIFIUTI",
-          "count": 3
-        },
-        {
-          "nome": "SMART_PARKING, E_MOBILITY",
-          "count": 2
-        },
-        {
-          "nome": "SMART_PARKING, EDIFICI_ENERGIA",
-          "count": 1
-        }
-      ]
-    }
-  },
-  "discount_trends": [],
-  "discount_trends_by_category": [],
-  "geo": [
-    {
-      "Regione": "Sardegna",
-      "num_gare": 10691,
-      "valore": 39969726296.880005,
-      "sconto_medio": 2.7003954591808865
-    },
-    {
-      "Regione": "Emilia-Romagna",
-      "num_gare": 19252,
-      "valore": 16555891476.52,
-      "sconto_medio": 2.39660921945308
-    },
-    {
-      "Regione": "Lombardia",
-      "num_gare": 58862,
-      "valore": 7338940343.809999,
-      "sconto_medio": 2.0499777681408404
-    },
-    {
-      "Regione": "Campania",
-      "num_gare": 19573,
-      "valore": 6174765730.359999,
-      "sconto_medio": 2.079735778420278
-    },
-    {
-      "Regione": "Umbria",
-      "num_gare": 4350,
-      "valore": 5053369612.109999,
-      "sconto_medio": 2.6528031072331664
-    },
-    {
-      "Regione": "Lazio",
-      "num_gare": 22594,
-      "valore": 4513210769.23,
-      "sconto_medio": 2.5931768467792957
-    },
-    {
-      "Regione": "Veneto",
-      "num_gare": 25725,
-      "valore": 2797541358.54,
-      "sconto_medio": 2.526601215303777
-    },
-    {
-      "Regione": "Puglia",
-      "num_gare": 12400,
-      "valore": 2643399166.9000006,
-      "sconto_medio": 2.807558103385199
-    },
-    {
-      "Regione": "Toscana",
-      "num_gare": 16342,
-      "valore": 2273406416.21,
-      "sconto_medio": 2.6644203356297926
-    },
-    {
-      "Regione": "Piemonte",
-      "num_gare": 31963,
-      "valore": 1706983352.48,
-      "sconto_medio": 1.7695087480129177
-    },
-    {
-      "Regione": "Sicilia",
-      "num_gare": 17573,
-      "valore": 1525947881.89,
-      "sconto_medio": 2.298524295691628
-    },
-    {
-      "Regione": "Marche",
-      "num_gare": 12396,
-      "valore": 1337645022.72,
-      "sconto_medio": 2.24996044444274
-    },
-    {
-      "Regione": "Liguria",
-      "num_gare": 10098,
-      "valore": 963735552.3499999,
-      "sconto_medio": 1.8251700860015585
-    },
-    {
-      "Regione": "Trentino-Alto Adige",
-      "num_gare": 15057,
-      "valore": 877018993.0999999,
-      "sconto_medio": 2.0571485417423365
-    },
-    {
-      "Regione": "Friuli-Venezia Giulia",
-      "num_gare": 10447,
-      "valore": 675459678.9200001,
-      "sconto_medio": 2.1544048651253016
-    },
-    {
-      "Regione": "Calabria",
-      "num_gare": 12839,
-      "valore": 573956066.22,
-      "sconto_medio": 1.663817669080388
-    },
-    {
-      "Regione": "Abruzzo",
-      "num_gare": 9122,
-      "valore": 566016191.3,
-      "sconto_medio": 1.723406897266354
-    },
-    {
-      "Regione": "Basilicata",
-      "num_gare": 3853,
-      "valore": 359133392.88,
-      "sconto_medio": 2.0321652143982605
-    },
-    {
-      "Regione": "Valle d'Aosta",
-      "num_gare": 2610,
-      "valore": 124555570.62,
-      "sconto_medio": 2.144823748876873
-    },
-    {
-      "Regione": "Molise",
-      "num_gare": 3762,
-      "valore": 103565050.01000002,
-      "sconto_medio": 1.1279717512596639
-    }
-  ],
-  "geo_cities": [
-    {
-      "citta": "CAGLIARI",
-      "lat": 39.2238,
-      "lng": 9.1217,
-      "num_gare": 964,
-      "valore": 38834783120.78,
-      "sconto_medio": 2.6843676981450706
-    },
-    {
-      "citta": "BOLOGNA",
-      "lat": 44.4949,
-      "lng": 11.3426,
-      "num_gare": 2727,
-      "valore": 15367566401.430002,
-      "sconto_medio": 4.795017226844268
-    },
-    {
-      "citta": "PERUGIA",
-      "lat": 43.1107,
-      "lng": 12.3908,
-      "num_gare": 681,
-      "valore": 4770093183.89,
-      "sconto_medio": 2.3554621388138726
-    },
-    {
-      "citta": "NAPOLI",
-      "lat": 40.8518,
-      "lng": 14.2681,
-      "num_gare": 2006,
-      "valore": 4722113967.4,
-      "sconto_medio": 4.25273946008428
-    },
-    {
-      "citta": "ROMA",
-      "lat": 41.9028,
-      "lng": 12.4964,
-      "num_gare": 12290,
-      "valore": 4249465698.6900005,
-      "sconto_medio": 3.5255321677709124
-    },
-    {
-      "citta": "MILANO",
-      "lat": 45.4642,
-      "lng": 9.19,
-      "num_gare": 15533,
-      "valore": 3763017839.45,
-      "sconto_medio": 1.2634786697213893
-    },
-    {
-      "citta": "SAVONA",
-      "lat": 44.3091,
-      "lng": 8.4772,
-      "num_gare": 356,
-      "valore": 1305221882.4,
-      "sconto_medio": 3.303976390105907
-    },
-    {
-      "citta": "BARI",
-      "lat": 41.1171,
-      "lng": 16.8719,
-      "num_gare": 2119,
-      "valore": 1291136547.3799999,
-      "sconto_medio": 4.597551686314555
-    },
-    {
-      "citta": "VENEZIA",
-      "lat": 45.4408,
-      "lng": 12.3155,
-      "num_gare": 1864,
-      "valore": 591678245.06,
-      "sconto_medio": 2.8398771329912833
-    },
-    {
-      "citta": "FIRENZE",
-      "lat": 43.7696,
-      "lng": 11.2558,
-      "num_gare": 1885,
-      "valore": 555138558.53,
-      "sconto_medio": 3.925149566249795
-    },
-    {
-      "citta": "PALERMO",
-      "lat": 38.1157,
-      "lng": 13.3615,
-      "num_gare": 1926,
-      "valore": 546929431.52,
-      "sconto_medio": 2.7800018392574803
-    },
-    {
-      "citta": "PADOVA",
-      "lat": 45.4064,
-      "lng": 11.8768,
-      "num_gare": 1199,
-      "valore": 417557645.76,
-      "sconto_medio": 3.0814703616079164
-    },
-    {
-      "citta": "GENOVA",
-      "lat": 44.4056,
-      "lng": 8.9463,
-      "num_gare": 1953,
-      "valore": 416572521.5,
-      "sconto_medio": 3.385543720645719
-    },
-    {
-      "citta": "SASSARI",
-      "lat": 40.7259,
-      "lng": 8.5556,
-      "num_gare": 574,
-      "valore": 411821393.68000007,
-      "sconto_medio": 2.849687030744242
-    },
-    {
-      "citta": "TORINO",
-      "lat": 45.0703,
-      "lng": 7.6869,
-      "num_gare": 2032,
-      "valore": 397917598.29999995,
-      "sconto_medio": 4.4566653635149
-    },
-    {
-      "citta": "VERONA",
-      "lat": 45.4384,
-      "lng": 10.9916,
-      "num_gare": 937,
-      "valore": 331467484.1,
-      "sconto_medio": 5.454368023114502
-    },
-    {
-      "citta": "IMPERIA",
-      "lat": 43.8875,
-      "lng": 8.0386,
-      "num_gare": 694,
-      "valore": 318840633.79,
-      "sconto_medio": 1.0305167554492172
-    },
-    {
-      "citta": "PISA",
-      "lat": 43.7228,
-      "lng": 10.4017,
-      "num_gare": 1035,
-      "valore": 307682880.85,
-      "sconto_medio": 2.5130380183000303
-    },
-    {
-      "citta": "BRESCIA",
-      "lat": 45.5416,
-      "lng": 10.2118,
-      "num_gare": 963,
-      "valore": 267081475.71999997,
-      "sconto_medio": 8.358767792069896
-    },
-    {
-      "citta": "ANCONA",
-      "lat": 43.6158,
-      "lng": 13.5189,
-      "num_gare": 1235,
-      "valore": 265128734.97,
-      "sconto_medio": 4.0170410677218324
-    },
-    {
-      "citta": "TRIESTE",
-      "lat": 45.6495,
-      "lng": 13.7768,
-      "num_gare": 1826,
-      "valore": 260215405.9,
-      "sconto_medio": 3.7249229097128733
-    },
-    {
-      "citta": "VICENZA",
-      "lat": 45.5455,
-      "lng": 11.5354,
-      "num_gare": 850,
-      "valore": 256402270.55,
-      "sconto_medio": 5.329979598262829
-    },
-    {
-      "citta": "POTENZA",
-      "lat": 40.6404,
-      "lng": 15.8056,
-      "num_gare": 775,
-      "valore": 233526499.74,
-      "sconto_medio": 2.48367213713875
-    },
-    {
-      "citta": "BERGAMO",
-      "lat": 45.6983,
-      "lng": 9.6773,
-      "num_gare": 886,
-      "valore": 220823675.46,
-      "sconto_medio": 4.4729759647150855
-    },
-    {
-      "citta": "TARANTO",
-      "lat": 40.4644,
-      "lng": 17.247,
-      "num_gare": 537,
-      "valore": 203138291.57000002,
-      "sconto_medio": 4.40411934326
-    },
-    {
-      "citta": "L'AQUILA",
-      "lat": 42.3498,
-      "lng": 13.3995,
-      "num_gare": 574,
-      "valore": 195177287.15,
-      "sconto_medio": 2.406478590893428
-    },
-    {
-      "citta": "LIVORNO",
-      "lat": 43.5485,
-      "lng": 10.3106,
-      "num_gare": 766,
-      "valore": 154570911.2,
-      "sconto_medio": 2.700699326794566
-    },
-    {
-      "citta": "COMO",
-      "lat": 45.81,
-      "lng": 9.0852,
-      "num_gare": 750,
-      "valore": 150766526.82000002,
-      "sconto_medio": 4.1740140388071785
-    },
-    {
-      "citta": "TRENTO",
-      "lat": 46.0748,
-      "lng": 11.1217,
-      "num_gare": 1572,
-      "valore": 149082966.19,
-      "sconto_medio": 2.7077413455898953
-    },
-    {
-      "citta": "TERNI",
-      "lat": 42.5636,
-      "lng": 12.6427,
-      "num_gare": 590,
-      "valore": 147309973.75,
-      "sconto_medio": 3.3402989866610304
-    },
-    {
-      "citta": "NOVARA",
-      "lat": 45.4465,
-      "lng": 8.622,
-      "num_gare": 1012,
-      "valore": 145921100.47,
-      "sconto_medio": 1.1901793365162452
-    },
-    {
-      "citta": "UDINE",
-      "lat": 46.0711,
-      "lng": 13.2346,
-      "num_gare": 1209,
-      "valore": 143971789.69,
-      "sconto_medio": 3.956487607206401
-    },
-    {
-      "citta": "CATANIA",
-      "lat": 37.5079,
-      "lng": 15.083,
-      "num_gare": 668,
-      "valore": 142817873.65,
-      "sconto_medio": 3.9670913876780385
-    },
-    {
-      "citta": "NUORO",
-      "lat": 40.3211,
-      "lng": 9.3312,
-      "num_gare": 441,
-      "valore": 139179037.92999998,
-      "sconto_medio": 6.8216317104355095
-    },
-    {
-      "citta": "BOLZANO .BOZEN.",
-      "lat": 46.4983,
-      "lng": 11.3548,
-      "num_gare": 1160,
-      "valore": 134926483.98000002,
-      "sconto_medio": 2.41282987955566
-    },
-    {
-      "citta": "MANTOVA",
-      "lat": 45.1564,
-      "lng": 10.7914,
-      "num_gare": 839,
-      "valore": 125664568.21000001,
-      "sconto_medio": 2.5362305580081084
-    },
-    {
-      "citta": "RIETI",
-      "lat": 42.4037,
-      "lng": 12.8567,
-      "num_gare": 371,
-      "valore": 121394387.57,
-      "sconto_medio": 4.6199441089447255
-    },
-    {
-      "citta": "ASCOLI PICENO",
-      "lat": 42.8537,
-      "lng": 13.5749,
-      "num_gare": 746,
-      "valore": 119919169.51000002,
-      "sconto_medio": 3.4065149153786343
-    },
-    {
-      "citta": "GROSSETO",
-      "lat": 42.7635,
-      "lng": 11.1124,
-      "num_gare": 414,
-      "valore": 116616366.64999999,
-      "sconto_medio": 4.298139372335865
-    },
-    {
-      "citta": "CASERTA",
-      "lat": 41.0742,
-      "lng": 14.3321,
-      "num_gare": 402,
-      "valore": 102991149.89999999,
-      "sconto_medio": 2.466024988348683
-    },
-    {
-      "citta": "COSENZA",
-      "lat": 39.3088,
-      "lng": 16.25,
-      "num_gare": 236,
-      "valore": 101368868.75,
-      "sconto_medio": 3.1668534031812827
-    },
-    {
-      "citta": "PAVIA",
-      "lat": 45.1847,
-      "lng": 9.1582,
-      "num_gare": 656,
-      "valore": 97444382.03,
-      "sconto_medio": 3.6076433138044255
-    },
-    {
-      "citta": "ROVIGO",
-      "lat": 45.07,
-      "lng": 11.79,
-      "num_gare": 529,
-      "valore": 89422719.18999998,
-      "sconto_medio": 3.3744931871720265
-    },
-    {
-      "citta": "VITERBO",
-      "lat": 42.42,
-      "lng": 12.1086,
-      "num_gare": 539,
-      "valore": 87709310.45000002,
-      "sconto_medio": 3.612476314674533
-    },
-    {
-      "citta": "TRAPANI",
-      "lat": 38.0174,
-      "lng": 12.5365,
-      "num_gare": 361,
-      "valore": 87158206.43,
-      "sconto_medio": 4.3757970766735585
-    },
-    {
-      "citta": "FERRARA",
-      "lat": 44.8381,
-      "lng": 11.6198,
-      "num_gare": 519,
-      "valore": 84645018.69,
-      "sconto_medio": 2.6347017441432268
-    },
-    {
-      "citta": "CUNEO",
-      "lat": 44.3844,
-      "lng": 7.5427,
-      "num_gare": 694,
-      "valore": 81466691.63,
-      "sconto_medio": 2.3036360805233267
-    },
-    {
-      "citta": "MODENA",
-      "lat": 44.6471,
-      "lng": 10.9252,
-      "num_gare": 521,
-      "valore": 77247189.86000001,
-      "sconto_medio": 2.723115801539925
-    },
-    {
-      "citta": "LATINA",
-      "lat": 41.4676,
-      "lng": 12.9037,
-      "num_gare": 448,
-      "valore": 74738161.34,
-      "sconto_medio": 5.2615598754072685
-    },
-    {
-      "citta": "PESARO",
-      "lat": 43.9098,
-      "lng": 12.9131,
-      "num_gare": 597,
-      "valore": 69642910.32000001,
-      "sconto_medio": 5.868496157225619
-    },
-    {
-      "citta": "MESSINA",
-      "lat": 38.1938,
-      "lng": 15.554,
-      "num_gare": 711,
-      "valore": 68937340.76,
-      "sconto_medio": 4.428315418734925
-    },
-    {
-      "citta": "ALESSANDRIA",
-      "lat": 44.9131,
-      "lng": 8.6151,
-      "num_gare": 462,
-      "valore": 68230915.56,
-      "sconto_medio": 1.8545992978236336
-    },
-    {
-      "citta": "PARMA",
-      "lat": 44.8015,
-      "lng": 10.3279,
-      "num_gare": 616,
-      "valore": 67683013.6,
-      "sconto_medio": 1.0981960081693718
-    },
-    {
-      "citta": "LECCE",
-      "lat": 40.3516,
-      "lng": 18.1718,
-      "num_gare": 394,
-      "valore": 65517945.6,
-      "sconto_medio": 6.621474176898645
-    },
-    {
-      "citta": "LECCO",
-      "lat": 45.8566,
-      "lng": 9.3976,
-      "num_gare": 450,
-      "valore": 65273684.72999999,
-      "sconto_medio": 3.0757133423486436
-    },
-    {
-      "citta": "CREMONA",
-      "lat": 45.1336,
-      "lng": 10.0249,
-      "num_gare": 504,
-      "valore": 64679320.739999995,
-      "sconto_medio": 3.227553819574164
-    },
-    {
-      "citta": "SIRACUSA",
-      "lat": 37.0755,
-      "lng": 15.2866,
-      "num_gare": 256,
-      "valore": 64304469.47,
-      "sconto_medio": 4.702103689254053
-    },
-    {
-      "citta": "VARESE",
-      "lat": 45.8206,
-      "lng": 8.8257,
-      "num_gare": 319,
-      "valore": 62878402.019999996,
-      "sconto_medio": 7.271192264562036
-    },
-    {
-      "citta": "LUCCA",
-      "lat": 43.8429,
-      "lng": 10.5027,
-      "num_gare": 521,
-      "valore": 61177368.03,
-      "sconto_medio": 5.616235618319852
-    },
-    {
-      "citta": "RAVENNA",
-      "lat": 44.4184,
-      "lng": 12.2035,
-      "num_gare": 369,
-      "valore": 60509986.989999995,
-      "sconto_medio": 3.386080948678979
-    },
-    {
-      "citta": "BELLUNO",
-      "lat": 46.1425,
-      "lng": 12.2167,
-      "num_gare": 377,
-      "valore": 59941072.17,
-      "sconto_medio": 3.8450358088399614
-    },
-    {
-      "citta": "SALERNO",
-      "lat": 40.6824,
-      "lng": 14.7681,
-      "num_gare": 953,
-      "valore": 59216029.67,
-      "sconto_medio": 2.8877765230868766
-    },
-    {
-      "citta": "PESCARA",
-      "lat": 42.4618,
-      "lng": 14.2161,
-      "num_gare": 566,
-      "valore": 59027588.25,
-      "sconto_medio": 3.959923927725322
-    },
-    {
-      "citta": "SIENA",
-      "lat": 43.3188,
-      "lng": 11.3307,
-      "num_gare": 403,
-      "valore": 54116899.29000001,
-      "sconto_medio": 3.116399978943637
-    },
-    {
-      "citta": "TREVISO",
-      "lat": 45.6669,
-      "lng": 12.243,
-      "num_gare": 496,
-      "valore": 52585283.95,
-      "sconto_medio": 2.7324599435435446
-    },
-    {
-      "citta": "CATANZARO",
-      "lat": 38.9098,
-      "lng": 16.5877,
-      "num_gare": 630,
-      "valore": 50300120.160000004,
-      "sconto_medio": 3.0098589213343234
-    },
-    {
-      "citta": "AREZZO",
-      "lat": 43.4633,
-      "lng": 11.8797,
-      "num_gare": 713,
-      "valore": 47388972.04,
-      "sconto_medio": 2.040004859297767
-    },
-    {
-      "citta": "BENEVENTO",
-      "lat": 41.1297,
-      "lng": 14.7828,
-      "num_gare": 239,
-      "valore": 46824282.99000001,
-      "sconto_medio": 4.6331542147521
-    },
-    {
-      "citta": "AOSTA",
-      "lat": 45.7369,
-      "lng": 7.3208,
-      "num_gare": 399,
-      "valore": 46661770.39999999,
-      "sconto_medio": 2.6901019135427546
-    },
-    {
-      "citta": "PRATO",
-      "lat": 43.8777,
-      "lng": 11.102,
-      "num_gare": 429,
-      "valore": 41781723.18,
-      "sconto_medio": 3.04922253579256
-    },
-    {
-      "citta": "ASTI",
-      "lat": 44.9008,
-      "lng": 8.2067,
-      "num_gare": 520,
-      "valore": 38703217.63,
-      "sconto_medio": 1.7170742459143031
-    },
-    {
-      "citta": "FOGGIA",
-      "lat": 41.4621,
-      "lng": 15.5444,
-      "num_gare": 370,
-      "valore": 33863512.96,
-      "sconto_medio": 4.6332651909500395
-    },
-    {
-      "citta": "GORIZIA",
-      "lat": 45.9407,
-      "lng": 13.6218,
-      "num_gare": 524,
-      "valore": 31952969.54,
-      "sconto_medio": 2.4579286811978434
-    },
-    {
-      "citta": "LA SPEZIA",
-      "lat": 44.1025,
-      "lng": 9.824,
-      "num_gare": 419,
-      "valore": 29543979.97,
-      "sconto_medio": 3.702605524900933
-    },
-    {
-      "citta": "AVELLINO",
-      "lat": 40.9146,
-      "lng": 14.7906,
-      "num_gare": 274,
-      "valore": 28907859.809999995,
-      "sconto_medio": 3.850216956096613
-    },
-    {
-      "citta": "PISTOIA",
-      "lat": 43.9302,
-      "lng": 10.9079,
-      "num_gare": 279,
-      "valore": 28665639.95,
-      "sconto_medio": 4.227732293024332
-    },
-    {
-      "citta": "MONZA",
-      "lat": 45.5845,
-      "lng": 9.2744,
-      "num_gare": 293,
-      "valore": 28632455.229999997,
-      "sconto_medio": 3.2764581596387132
-    },
-    {
-      "citta": "CALTANISSETTA",
-      "lat": 37.4901,
-      "lng": 14.0629,
-      "num_gare": 225,
-      "valore": 27358864.799999997,
-      "sconto_medio": 6.021727552894475
-    },
-    {
-      "citta": "RAGUSA",
-      "lat": 36.9269,
-      "lng": 14.7255,
-      "num_gare": 376,
-      "valore": 26565614.08,
-      "sconto_medio": 2.324083747382563
-    },
-    {
-      "citta": "VERCELLI",
-      "lat": 45.3257,
-      "lng": 8.4184,
-      "num_gare": 462,
-      "valore": 26120468.27,
-      "sconto_medio": 1.8202368602139567
-    },
-    {
-      "citta": "RIMINI",
-      "lat": 44.0678,
-      "lng": 12.5695,
-      "num_gare": 388,
-      "valore": 25605453.58,
-      "sconto_medio": 1.7252402701809457
-    },
-    {
-      "citta": "FERMO",
-      "lat": 43.1608,
-      "lng": 13.7159,
-      "num_gare": 257,
-      "valore": 24247756.64,
-      "sconto_medio": 2.4167859597573007
-    },
-    {
-      "citta": "MACERATA",
-      "lat": 43.2992,
-      "lng": 13.4531,
-      "num_gare": 642,
-      "valore": 22477394.339999996,
-      "sconto_medio": 1.248765067575052
-    },
-    {
-      "citta": "CAMPOBASSO",
-      "lat": 41.561,
-      "lng": 14.6687,
-      "num_gare": 399,
-      "valore": 21924040.53,
-      "sconto_medio": 2.9409450358919225
-    },
     {
-      "citta": "CROTONE",
-      "lat": 39.081,
-      "lng": 17.1175,
-      "num_gare": 191,
-      "valore": 21511231.52,
-      "sconto_medio": 6.812432326593828
+      "categoria": "Illuminazione",
+      "num_gare": 53307,
+      "valore": 3534376154.24
     },
     {
-      "citta": "PORDENONE",
-      "lat": 45.9564,
-      "lng": 12.6615,
-      "num_gare": 616,
-      "valore": 21047774.769999996,
-      "sconto_medio": 0.8080464338819509
+      "categoria": "Impianti",
+      "num_gare": 2763,
+      "valore": 48398196.0
     },
     {
-      "citta": "VERBANIA",
-      "lat": 45.9225,
-      "lng": 8.5514,
-      "num_gare": 272,
-      "valore": 17917930.869999997,
-      "sconto_medio": 5.9412883763757165
+      "categoria": "Infrastrutture",
+      "num_gare": 2153,
+      "valore": 41806225.0
     },
     {
-      "citta": "BIELLA",
-      "lat": 45.5628,
-      "lng": 8.0583,
-      "num_gare": 463,
-      "valore": 17436658.85,
-      "sconto_medio": 3.106365051702631
+      "categoria": "Infrastrutture_Digitali",
+      "num_gare": 639,
+      "valore": 11323037.0
     },
     {
-      "citta": "BOLZANO",
-      "lat": 46.4983,
-      "lng": 11.3548,
-      "num_gare": 195,
-      "valore": 14698122.64,
-      "sconto_medio": 3.362626155187157
+      "categoria": "Parcheggi",
+      "num_gare": 366,
+      "valore": 5080248.0
     },
     {
-      "citta": "MATERA",
-      "lat": 40.6663,
-      "lng": 16.6043,
-      "num_gare": 218,
-      "valore": 12433064.059999999,
-      "sconto_medio": 3.233025044393628
+      "categoria": "Ricarica",
+      "num_gare": 22,
+      "valore": 362988.0
     },
     {
-      "citta": "FROSINONE",
-      "lat": 41.6397,
-      "lng": 13.3426,
-      "num_gare": 244,
-      "valore": 12072579.5,
-      "sconto_medio": 1.5526154152547336
+      "categoria": "Rifiuti",
+      "num_gare": 29316,
+      "valore": 8713558746.5
     },
     {
-      "citta": "AGRIGENTO",
-      "lat": 37.3111,
-      "lng": 13.5765,
-      "num_gare": 154,
-      "valore": 10840526.809999999,
-      "sconto_medio": 1.2460827575633953
+      "categoria": "Sanitario",
+      "num_gare": 682,
+      "valore": 10834052.0
     },
     {
-      "citta": "OLBIA",
-      "lat": 40.9233,
-      "lng": 9.5037,
-      "num_gare": 213,
-      "valore": 9772063.999999998,
-      "sconto_medio": 2.1908354180992258
+      "categoria": "Scuole",
+      "num_gare": 1184,
+      "valore": 31734630.0
     },
     {
-      "citta": "ISERNIA",
-      "lat": 41.594,
-      "lng": 14.233,
-      "num_gare": 117,
-      "valore": 9396393.500000002,
-      "sconto_medio": 1.8357152249580015
+      "categoria": "Smart_City",
+      "num_gare": 14935,
+      "valore": 3317597348.73
     },
     {
-      "citta": "ORISTANO",
-      "lat": 39.9062,
-      "lng": 8.59,
-      "num_gare": 205,
-      "valore": 9287376.16,
-      "sconto_medio": 1.9438797979653655
+      "categoria": "Smart_Parking",
+      "num_gare": 2519,
+      "valore": 37159483.36
     },
     {
-      "citta": "MASSA",
-      "lat": 44.0369,
-      "lng": 10.1398,
-      "num_gare": 213,
-      "valore": 9228473.469999999,
-      "sconto_medio": 1.8286210331663018
+      "categoria": "Strade_Infrastrutture",
+      "num_gare": 21839,
+      "valore": 2456742432.48
     },
-    {
-      "citta": "CARBONIA",
-      "lat": 39.1647,
-      "lng": 8.5215,
-      "num_gare": 117,
-      "valore": 7297494.289999998,
-      "sconto_medio": 5.022614421058575
-    },
-    {
-      "citta": "VIBO VALENTIA",
-      "lat": 38.6761,
-      "lng": 16.0994,
-      "num_gare": 124,
-      "valore": 6654357.270000001,
-      "sconto_medio": 5.535127480134636
-    },
-    {
-      "citta": "ENNA",
-      "lat": 37.5665,
-      "lng": 14.2792,
-      "num_gare": 249,
-      "valore": 6352586.99,
-      "sconto_medio": 2.7204287429769534
-    },
-    {
-      "citta": "REGGIO EMILIA",
-      "lat": 44.6989,
-      "lng": 10.6297,
-      "num_gare": 14,
-      "valore": 2223046.4000000004,
-      "sconto_medio": 0.0
-    }
-  ],
-  "top_aggiudicatari": [
     {
-      "Aggiudicatario": "PHILIPS S.P.A.",
-      "num_gare": 10,
-      "valore": 38717904215.0,
-      "sconto_medio": 0.0
+      "categoria": "Strutture_Sportive",
+      "num_gare": 1038,
+      "valore": 19672495.0
     },
     {
-      "Aggiudicatario": "EDISON NEXT S.P.A",
-      "num_gare": 17,
-      "valore": 13499338882.600002,
-      "sconto_medio": 0.6598482349059716
+      "categoria": "Termici",
+      "num_gare": 456,
+      "valore": 9064514.0
     },
     {
-      "Aggiudicatario": "CRISEL INSTRUMENTS SRL",
-      "num_gare": 3,
-      "valore": 4703432357.0,
-      "sconto_medio": 0.0
+      "categoria": "Trasporti",
+      "num_gare": 321,
+      "valore": 4809093.0
     },
     {
-      "Aggiudicatario": "A2A AMBIENTE SPA",
-      "num_gare": 16,
-      "valore": 4122275860.64,
-      "sconto_medio": 14.842441164349596
+      "categoria": "Trasporti_Pubblici",
+      "num_gare": 485,
+      "valore": 6971845.0
     },
     {
-      "Aggiudicatario": "ING. MARIA ALESSANDRA BINAGHI",
+      "categoria": "Tunnel",
       "num_gare": 1,
-      "valore": 1260300097.0,
-      "sconto_medio": 0.0
+      "valore": 900.0
     },
     {
-      "Aggiudicatario": "MAXISALD S.R.L.",
+      "categoria": "Verde_Pubblico",
+      "num_gare": 20663,
+      "valore": 954134594.8000001
+    },
+    {
+      "categoria": "Videosorveglianza",
+      "num_gare": 29764,
+      "valore": 5515944913.840001
+    }
+  ],
+  "by_regione": [
+    {
+      "regione": "Abruzzo",
+      "num_gare": 8242,
+      "valore": 619687866.01
+    },
+    {
+      "regione": "Basilicata",
+      "num_gare": 3502,
+      "valore": 351809116.33000004
+    },
+    {
+      "regione": "Calabria",
+      "num_gare": 10770,
+      "valore": 581244517.86
+    },
+    {
+      "regione": "Campania",
+      "num_gare": 17379,
+      "valore": 3001163534.7200003
+    },
+    {
+      "regione": "Centrale",
+      "num_gare": 38,
+      "valore": 70130280.41
+    },
+    {
+      "regione": "Emilia romagna",
+      "num_gare": 49,
+      "valore": 55221818.550000004
+    },
+    {
+      "regione": "Emilia-Romagna",
+      "num_gare": 16999,
+      "valore": 6579708895.93
+    },
+    {
+      "regione": "Friuli Venezia Giulia",
+      "num_gare": 8861,
+      "valore": 1167131291.94
+    },
+    {
+      "regione": "Friuli venezia giulia",
+      "num_gare": 19,
+      "valore": 20642165.02
+    },
+    {
+      "regione": "Friuli-Venezia Giulia",
+      "num_gare": 446,
+      "valore": 61195028.9
+    },
+    {
+      "regione": "Lazio",
+      "num_gare": 23769,
+      "valore": 11493204128.23
+    },
+    {
+      "regione": "Liguria",
+      "num_gare": 9567,
+      "valore": 2720563828.3800006
+    },
+    {
+      "regione": "Lombardia",
+      "num_gare": 44275,
+      "valore": 11865307830.34
+    },
+    {
+      "regione": "Marche",
+      "num_gare": 10454,
+      "valore": 680815033.43
+    },
+    {
+      "regione": "Molise",
+      "num_gare": 3174,
+      "valore": 111528148.42
+    },
+    {
+      "regione": "Non classificato",
+      "num_gare": 4,
+      "valore": 5011208.65
+    },
+    {
+      "regione": "Piemonte",
+      "num_gare": 28179,
+      "valore": 4267794925.2200003
+    },
+    {
+      "regione": "Provincia autonoma di trento",
+      "num_gare": 7,
+      "valore": 5177083.46
+    },
+    {
+      "regione": "Puglia",
+      "num_gare": 11827,
+      "valore": 2600051924.69
+    },
+    {
+      "regione": "Sardegna",
+      "num_gare": 10486,
+      "valore": 4767602652.360001
+    },
+    {
+      "regione": "Sicilia",
+      "num_gare": 16685,
+      "valore": 1405151225.6999998
+    },
+    {
+      "regione": "Toscana",
+      "num_gare": 15714,
+      "valore": 2389829977.22
+    },
+    {
+      "regione": "Trentino-Alto Adige",
+      "num_gare": 10513,
+      "valore": 1291457298.4699998
+    },
+    {
+      "regione": "Umbria",
+      "num_gare": 3819,
+      "valore": 6073999987.12
+    },
+    {
+      "regione": "Valle d'Aosta",
+      "num_gare": 2128,
+      "valore": 110404642.38
+    },
+    {
+      "regione": "Valle d'aosta",
+      "num_gare": 1,
+      "valore": 1678972.6
+    },
+    {
+      "regione": "Veneto",
+      "num_gare": 23632,
+      "valore": 10505638733.54
+    }
+  ],
+  "by_anno": [
+    {
+      "anno": 2001,
+      "num_gare": 1,
+      "valore": 720.0
+    },
+    {
+      "anno": 2004,
+      "num_gare": 1,
+      "valore": 73800.0
+    },
+    {
+      "anno": 2005,
+      "num_gare": 1,
+      "valore": 9000.0
+    },
+    {
+      "anno": 2006,
       "num_gare": 6,
-      "valore": 991434012.0,
-      "sconto_medio": 0.0
+      "valore": 97503.0
     },
     {
-      "Aggiudicatario": "IMPREDIL GELFI S.R.L.",
-      "num_gare": 3,
-      "valore": 704541348.0,
-      "sconto_medio": 0.0
-    },
-    {
-      "Aggiudicatario": "EV S.R.L. UNIPERSONALE",
+      "anno": 2007,
       "num_gare": 2,
-      "valore": 514595101.64,
-      "sconto_medio": 0.0
+      "valore": 4377908.0
     },
     {
-      "Aggiudicatario": "TIM SPA",
-      "num_gare": 70,
-      "valore": 479113719.91999996,
-      "sconto_medio": 0.0
+      "anno": 2008,
+      "num_gare": 16,
+      "valore": 21016763.7
     },
     {
-      "Aggiudicatario": "EDISON NEXT GOVERNMENT S.R.L.",
-      "num_gare": 179,
-      "valore": 458922904.79,
-      "sconto_medio": 1.160646926004859
+      "anno": 2009,
+      "num_gare": 8,
+      "valore": 5945829.68
     },
     {
-      "Aggiudicatario": "EDISON ENERGIA S.P.A.",
-      "num_gare": 363,
-      "valore": 393867568.26,
-      "sconto_medio": 0.35214955308229406
+      "anno": 2010,
+      "num_gare": 44,
+      "valore": 143576.48
     },
     {
-      "Aggiudicatario": "PROCARF S.R.L.",
-      "num_gare": 3,
-      "valore": 384984588.0,
-      "sconto_medio": 0.0
-    },
-    {
-      "Aggiudicatario": "SIMEONE SPA",
+      "anno": 2011,
       "num_gare": 5,
-      "valore": 296019770.44,
-      "sconto_medio": 20.302636090125894
+      "valore": 6708778.91
     },
     {
-      "Aggiudicatario": "COGEIR COSTRUZIONI E GESTIONI SRL",
+      "anno": 2012,
+      "num_gare": 53,
+      "valore": 324078502.07000005
+    },
+    {
+      "anno": 2013,
       "num_gare": 11,
-      "valore": 265692971.67999998,
-      "sconto_medio": 27.228649003590412
+      "valore": 4791750.97
     },
     {
-      "Aggiudicatario": "REKEEP SPA (EX MANUTENCOOP FACILITY MANGEMENT)",
-      "num_gare": 2,
-      "valore": 225544561.0,
-      "sconto_medio": 0.0
+      "anno": 2014,
+      "num_gare": 128,
+      "valore": 9558589.57
     },
     {
-      "Aggiudicatario": "IDROEDIL S.R.L.",
-      "num_gare": 1,
-      "valore": 224146600.0,
-      "sconto_medio": 33.313237449375045
+      "anno": 2015,
+      "num_gare": 613,
+      "valore": 44524781.71
     },
     {
-      "Aggiudicatario": "SINTESI CONSORZIO STABILE",
-      "num_gare": 484,
-      "valore": 219378400.73000002,
-      "sconto_medio": 0.1185924814823582
+      "anno": 2016,
+      "num_gare": 624,
+      "valore": 224391272.44
     },
     {
-      "Aggiudicatario": "AMG ENERGIA S.P.A.",
-      "num_gare": 5,
-      "valore": 216855102.10000002,
-      "sconto_medio": 0.0
+      "anno": 2017,
+      "num_gare": 546,
+      "valore": 34570555.03
     },
     {
-      "Aggiudicatario": "AGSM AIM ENERGIA S.P.A.",
-      "num_gare": 239,
-      "valore": 212634647.96,
-      "sconto_medio": 0.4464555052790347
+      "anno": 2018,
+      "num_gare": 805,
+      "valore": 242206033.73
     },
     {
-      "Aggiudicatario": "NOVA AEG S.P.A.",
-      "num_gare": 9,
-      "valore": 204402166.40999997,
-      "sconto_medio": 5.123850126333089
+      "anno": 2019,
+      "num_gare": 908,
+      "valore": 67846099.89
+    },
+    {
+      "anno": 2020,
+      "num_gare": 1037,
+      "valore": 271816709.65
+    },
+    {
+      "anno": 2021,
+      "num_gare": 1017,
+      "valore": 35944041.07
+    },
+    {
+      "anno": 2022,
+      "num_gare": 844,
+      "valore": 198667874.41
+    },
+    {
+      "anno": 2023,
+      "num_gare": 38685,
+      "valore": 4826067735.47
+    },
+    {
+      "anno": 2024,
+      "num_gare": 188225,
+      "valore": 39872310948.94
+    },
+    {
+      "anno": 2025,
+      "num_gare": 108954,
+      "valore": 27241806917.46
     }
-  ],
-  "top_aggiudicatari_detailed": [],
-  "yoy": [],
-  "filter_options": {
-    "anni": [],
-    "categorie_macro": [
-      "ACQUA_FOGNATURE",
-      "EDIFICI_ENERGIA",
-      "ENERGIA",
-      "E_MOBILITY",
-      "ILLUMINAZIONE",
-      "RIFIUTI",
-      "SMART_CITY",
-      "SMART_PARKING",
-      "STRADE_INFRASTRUTTURE",
-      "VERDE_PUBBLICO",
-      "VIDEOSORVEGLIANZA"
-    ],
-    "sottocategorie": [
-      "ACQUA_FOGNATURE",
-      "ACQUA_FOGNATURE, RIFIUTI",
-      "ACQUA_FOGNATURE, VERDE_PUBBLICO",
-      "EDIFICI_ENERGIA",
-      "EDIFICI_ENERGIA, ACQUA_FOGNATURE",
-      "EDIFICI_ENERGIA, E_MOBILITY",
-      "EDIFICI_ENERGIA, RIFIUTI",
-      "EDIFICI_ENERGIA, STRADE_INFRASTRUTTURE",
-      "EDIFICI_ENERGIA, STRADE_INFRASTRUTTURE, VERDE_PUBBLICO",
-      "EDIFICI_ENERGIA, VERDE_PUBBLICO",
-      "ENERGIA",
-      "ENERGIA, ACQUA_FOGNATURE",
-      "ENERGIA, ACQUA_FOGNATURE, RIFIUTI",
-      "ENERGIA, EDIFICI_ENERGIA",
-      "ENERGIA, EDIFICI_ENERGIA, ACQUA_FOGNATURE",
-      "ENERGIA, EDIFICI_ENERGIA, E_MOBILITY",
-      "ENERGIA, EDIFICI_ENERGIA, RIFIUTI",
-      "ENERGIA, EDIFICI_ENERGIA, STRADE_INFRASTRUTTURE",
-      "ENERGIA, E_MOBILITY",
-      "ENERGIA, E_MOBILITY, ACQUA_FOGNATURE",
-      "ENERGIA, RIFIUTI",
-      "ENERGIA, STRADE_INFRASTRUTTURE",
-      "ENERGIA, STRADE_INFRASTRUTTURE, RIFIUTI",
-      "ENERGIA, VERDE_PUBBLICO",
-      "E_MOBILITY",
-      "E_MOBILITY, ACQUA_FOGNATURE",
-      "E_MOBILITY, RIFIUTI",
-      "E_MOBILITY, VERDE_PUBBLICO",
-      "ILLUMINAZIONE",
-      "ILLUMINAZIONE, ACQUA_FOGNATURE",
-      "ILLUMINAZIONE, ACQUA_FOGNATURE, VERDE_PUBBLICO",
-      "ILLUMINAZIONE, EDIFICI_ENERGIA",
-      "ILLUMINAZIONE, EDIFICI_ENERGIA, ACQUA_FOGNATURE",
-      "ILLUMINAZIONE, EDIFICI_ENERGIA, E_MOBILITY",
-      "ILLUMINAZIONE, EDIFICI_ENERGIA, STRADE_INFRASTRUTTURE",
-      "ILLUMINAZIONE, EDIFICI_ENERGIA, VERDE_PUBBLICO",
-      "ILLUMINAZIONE, ENERGIA",
-      "ILLUMINAZIONE, ENERGIA, ACQUA_FOGNATURE",
-      "ILLUMINAZIONE, ENERGIA, EDIFICI_ENERGIA",
-      "ILLUMINAZIONE, ENERGIA, EDIFICI_ENERGIA, E_MOBILITY",
-      "ILLUMINAZIONE, ENERGIA, EDIFICI_ENERGIA, STRADE_INFRASTRUTTURE",
-      "ILLUMINAZIONE, ENERGIA, EDIFICI_ENERGIA, VERDE_PUBBLICO",
-      "ILLUMINAZIONE, ENERGIA, E_MOBILITY",
-      "ILLUMINAZIONE, ENERGIA, RIFIUTI",
-      "ILLUMINAZIONE, ENERGIA, STRADE_INFRASTRUTTURE",
-      "ILLUMINAZIONE, ENERGIA, VERDE_PUBBLICO",
-      "ILLUMINAZIONE, E_MOBILITY",
-      "ILLUMINAZIONE, RIFIUTI",
-      "ILLUMINAZIONE, SMART_CITY",
-      "ILLUMINAZIONE, SMART_CITY, ACQUA_FOGNATURE",
-      "ILLUMINAZIONE, SMART_CITY, ENERGIA",
-      "ILLUMINAZIONE, SMART_CITY, ENERGIA, EDIFICI_ENERGIA",
-      "ILLUMINAZIONE, SMART_CITY, ENERGIA, STRADE_INFRASTRUTTURE",
-      "ILLUMINAZIONE, SMART_CITY, STRADE_INFRASTRUTTURE",
-      "ILLUMINAZIONE, SMART_PARKING",
-      "ILLUMINAZIONE, SMART_PARKING, ENERGIA",
-      "ILLUMINAZIONE, STRADE_INFRASTRUTTURE",
-      "ILLUMINAZIONE, STRADE_INFRASTRUTTURE, ACQUA_FOGNATURE",
-      "ILLUMINAZIONE, STRADE_INFRASTRUTTURE, RIFIUTI",
-      "ILLUMINAZIONE, STRADE_INFRASTRUTTURE, VERDE_PUBBLICO",
-      "ILLUMINAZIONE, VERDE_PUBBLICO",
-      "ILLUMINAZIONE, VIDEOSORVEGLIANZA",
-      "ILLUMINAZIONE, VIDEOSORVEGLIANZA, ACQUA_FOGNATURE",
-      "ILLUMINAZIONE, VIDEOSORVEGLIANZA, EDIFICI_ENERGIA",
-      "ILLUMINAZIONE, VIDEOSORVEGLIANZA, ENERGIA",
-      "ILLUMINAZIONE, VIDEOSORVEGLIANZA, ENERGIA, ACQUA_FOGNATURE",
-      "ILLUMINAZIONE, VIDEOSORVEGLIANZA, ENERGIA, STRADE_INFRASTRUTTURE",
-      "ILLUMINAZIONE, VIDEOSORVEGLIANZA, RIFIUTI",
-      "ILLUMINAZIONE, VIDEOSORVEGLIANZA, SMART_CITY",
-      "ILLUMINAZIONE, VIDEOSORVEGLIANZA, STRADE_INFRASTRUTTURE",
-      "ILLUMINAZIONE, VIDEOSORVEGLIANZA, STRADE_INFRASTRUTTURE, RIFIUTI",
-      "ILLUMINAZIONE, VIDEOSORVEGLIANZA, VERDE_PUBBLICO",
-      "RIFIUTI",
-      "RIFIUTI, VERDE_PUBBLICO",
-      "SMART_CITY",
-      "SMART_CITY, ACQUA_FOGNATURE",
-      "SMART_CITY, EDIFICI_ENERGIA",
-      "SMART_CITY, EDIFICI_ENERGIA, VERDE_PUBBLICO",
-      "SMART_CITY, ENERGIA",
-      "SMART_CITY, ENERGIA, ACQUA_FOGNATURE",
-      "SMART_CITY, ENERGIA, ACQUA_FOGNATURE, RIFIUTI",
-      "SMART_CITY, ENERGIA, EDIFICI_ENERGIA",
-      "SMART_CITY, E_MOBILITY",
-      "SMART_CITY, RIFIUTI",
-      "SMART_CITY, RIFIUTI, VERDE_PUBBLICO",
-      "SMART_CITY, SMART_PARKING",
-      "SMART_CITY, STRADE_INFRASTRUTTURE",
-      "SMART_CITY, VERDE_PUBBLICO",
-      "SMART_PARKING",
-      "SMART_PARKING, EDIFICI_ENERGIA",
-      "SMART_PARKING, ENERGIA",
-      "SMART_PARKING, E_MOBILITY",
-      "SMART_PARKING, RIFIUTI",
-      "SMART_PARKING, STRADE_INFRASTRUTTURE",
-      "SMART_PARKING, VERDE_PUBBLICO",
-      "STRADE_INFRASTRUTTURE",
-      "STRADE_INFRASTRUTTURE, ACQUA_FOGNATURE",
-      "STRADE_INFRASTRUTTURE, ACQUA_FOGNATURE, VERDE_PUBBLICO",
-      "STRADE_INFRASTRUTTURE, E_MOBILITY",
-      "STRADE_INFRASTRUTTURE, E_MOBILITY, VERDE_PUBBLICO",
-      "STRADE_INFRASTRUTTURE, RIFIUTI",
-      "STRADE_INFRASTRUTTURE, VERDE_PUBBLICO",
-      "VERDE_PUBBLICO",
-      "VIDEOSORVEGLIANZA",
-      "VIDEOSORVEGLIANZA, ACQUA_FOGNATURE",
-      "VIDEOSORVEGLIANZA, ACQUA_FOGNATURE, VERDE_PUBBLICO",
-      "VIDEOSORVEGLIANZA, EDIFICI_ENERGIA",
-      "VIDEOSORVEGLIANZA, EDIFICI_ENERGIA, STRADE_INFRASTRUTTURE",
-      "VIDEOSORVEGLIANZA, ENERGIA",
-      "VIDEOSORVEGLIANZA, ENERGIA, EDIFICI_ENERGIA",
-      "VIDEOSORVEGLIANZA, ENERGIA, E_MOBILITY",
-      "VIDEOSORVEGLIANZA, ENERGIA, RIFIUTI",
-      "VIDEOSORVEGLIANZA, ENERGIA, STRADE_INFRASTRUTTURE",
-      "VIDEOSORVEGLIANZA, E_MOBILITY",
-      "VIDEOSORVEGLIANZA, RIFIUTI",
-      "VIDEOSORVEGLIANZA, SMART_CITY",
-      "VIDEOSORVEGLIANZA, SMART_CITY, ENERGIA",
-      "VIDEOSORVEGLIANZA, SMART_CITY, ENERGIA, EDIFICI_ENERGIA",
-      "VIDEOSORVEGLIANZA, SMART_CITY, RIFIUTI",
-      "VIDEOSORVEGLIANZA, SMART_PARKING",
-      "VIDEOSORVEGLIANZA, STRADE_INFRASTRUTTURE",
-      "VIDEOSORVEGLIANZA, STRADE_INFRASTRUTTURE, E_MOBILITY",
-      "VIDEOSORVEGLIANZA, STRADE_INFRASTRUTTURE, RIFIUTI",
-      "VIDEOSORVEGLIANZA, VERDE_PUBBLICO"
-    ]
-  }
+  ]
 }
