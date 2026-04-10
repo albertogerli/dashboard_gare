@@ -32,6 +32,7 @@ docs/
 
 # Large uncompressed data (only keep .gz)
 data/gare_unificate.csv
+data/gare_unificate.parquet
 
 # File temporanei
 *.log
